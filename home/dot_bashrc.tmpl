@@ -1,0 +1,25 @@
+# ~/.bashrc — managed by chezmoi. Edit the template at:
+#   ~/.local/share/chezmoi/home/dot_bashrc.tmpl
+#
+# This file is intentionally tiny: it just sources modular pieces in ~/.config/bash/.
+
+# Only run interactive setup for interactive shells.
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+
+# Window-size check (default Ubuntu behavior; harmless on others).
+shopt -s checkwinsize
+
+# Source modular config files in numeric order, skipping missing ones.
+for f in ~/.config/bash/*.sh; do
+    [ -r "$f" ] && . "$f"
+done
+unset f
+
+# Local-only overrides — never managed by chezmoi.
+[ -r ~/.bashrc.local ] && . ~/.bashrc.local
+
+# ble.sh attach (must happen after all other shell setup).
+[[ ${BLE_VERSION-} ]] && ble-attach
