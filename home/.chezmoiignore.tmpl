@@ -1,0 +1,27 @@
+{{- /* Files excluded per profile. */ -}}
+
+{{- if eq .profile "embedded" }}
+.config/nvim
+.config/bash/15-modern.sh
+.config/bash/20-tools.sh
+.config/bash/30-fzf.sh
+.config/bash/50-blesh.sh
+.config/bash/60-prompt.sh
+.config/bash/70-work-hook.sh
+.config/starship.toml
+.tmux.conf
+{{- end }}
+
+{{- if ne .profile "wsl" }}
+.config/bash/90-wsl.sh
+{{- end }}
+
+{{- if not .work }}
+.config/dotfiles-work
+{{- end }}
+
+# Never copy these into $HOME — repo-only.
+README.md
+bootstrap.sh
+docs
+scripts
