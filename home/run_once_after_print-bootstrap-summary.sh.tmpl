@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Prints a one-time "what to do next" summary at the end of the first chezmoi apply.
+# run_once_after_* fires exactly once after source state has been written and other scripts have run.
+
+set -u
+
+cat <<'BANNER'
+
+════════════════════════════════════════════════════════════════════════
+                       DOTFILES BOOTSTRAP COMPLETE
+════════════════════════════════════════════════════════════════════════
+BANNER
+
+cat <<EOF
+
+What just happened: chezmoi installed shell config, LazyVim, tmux config,
+git config, modern CLI tools, and (optionally) the personal/work overlays.
+
+Next steps:
+
+  1. OPEN A FRESH TERMINAL (or run \`exec bash -l\`).
+     The current shell pre-dates the new ~/.bashrc and won't pick it up.
+{{- if eq .profile "wsl" }}
+     New terminals will have starship, ble.sh autosuggestions, eza, etc.
+
+  2. WINDOWS-SIDE FONT (one-time, manual).
+     Open Windows Terminal → Settings → Profiles → Ubuntu → Appearance,
+     and VSCode → Settings → search "font family". Set both to:
+         JetBrainsMono Nerd Font Mono
+     Then restart the terminal. Without this, prompt icons render as boxes.
+{{- end }}
+
+  3. CHEAT SHEET.
+     Run \`cheat\` (alias in the new shell) for a full reference of
+     keybinds, modern CLI swaps, and editing workflow.
+
+  4. FIRST NVIM LAUNCH installs LazyVim plugins (~1-2 min).
+     Just run \`nvim\` once and let it finish.
+
+  5. PULL UPDATES later with \`chezmoi update\` (= git pull + apply).
+
+{{- if and .work .bootstrap_work_overlay }}
+
+  Work overlay: cloned to ~/.config/dotfiles-work/. Edit files there
+  directly, then commit + push to crumgary/dotfiles-work.
+{{- end }}
+{{- if .bootstrap_priv_overlay }}
+
+  Personal overlay: cloned to ~/.config/dotfiles-priv/. Edit, commit,
+  push to crumgary/dotfiles-priv. Other machines pick up changes on
+  \`chezmoi update\`.
+{{- end }}
+
+════════════════════════════════════════════════════════════════════════
+EOF
