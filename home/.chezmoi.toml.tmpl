@@ -1,13 +1,12 @@
 {{- /* Init prompts — all machine-specific values live here, never in the repo */ -}}
 
+{{- /* No fail-on-empty here — chezmoi init must always succeed so users can
+       recover from a bad answer via `chezmoi init` or `chezmoi edit-config`.
+       Empty values produce a one-time warning during apply (see
+       run_onchange_after_check-identity.sh.tmpl). */ -}}
 {{- $github_username := promptStringOnce . "github_username" "GitHub username (no default; e.g. crumgary)" -}}
-{{- if eq $github_username "" -}}{{- fail "github_username is required (re-run with `chezmoi init` or fix with `chezmoi edit-config`)" -}}{{- end -}}
-
-{{- $git_user_name := promptStringOnce . "git_user_name" "Your full name for git commits (no default; e.g. Gary Crum)" -}}
-{{- if eq $git_user_name "" -}}{{- fail "git_user_name is required (re-run with `chezmoi init` or fix with `chezmoi edit-config`)" -}}{{- end -}}
-
-{{- $git_user_email := promptStringOnce . "git_user_email" "Your email for git commits (no default)" -}}
-{{- if eq $git_user_email "" -}}{{- fail "git_user_email is required (re-run with `chezmoi init` or fix with `chezmoi edit-config`)" -}}{{- end -}}
+{{- $git_user_name   := promptStringOnce . "git_user_name"   "Your full name for git commits (no default; e.g. Gary Crum)" -}}
+{{- $git_user_email  := promptStringOnce . "git_user_email"  "Your email for git commits (no default)" -}}
 
 {{- $profile := promptChoiceOnce . "profile" "Profile" (list "wsl" "devbox" "lab" "embedded") -}}
 {{- $work    := promptBoolOnce   . "work"    "Is this a work machine? (true/false)" -}}

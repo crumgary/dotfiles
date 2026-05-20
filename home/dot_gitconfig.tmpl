@@ -1,5 +1,6 @@
-{{- if eq .git_user_name  "" }}{{ fail "git_user_name is empty in chezmoi.toml; fix with: chezmoi edit-config" }}{{ end -}}
-{{- if eq .git_user_email "" }}{{ fail "git_user_email is empty in chezmoi.toml; fix with: chezmoi edit-config" }}{{ end -}}
+{{- /* If name/email are empty, render with empty values rather than blocking apply.
+       Git itself will error on `git commit` until they're set — which is the right place
+       for that complaint, not here. A separate warning script flags this at apply time. */ -}}
 [user]
     name  = {{ .git_user_name  }}
     email = {{ .git_user_email }}

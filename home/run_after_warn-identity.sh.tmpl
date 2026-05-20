@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Warn (but don't fail) at the end of every apply if git identity is missing.
+# Runs every apply (not run_onchange or run_once) because it's cheap.
+
+{{- if or (eq .git_user_name "") (eq .git_user_email "") (eq .github_username "") }}
+
+cat <<'EOF' >&2
+
+────────────────────────────────────────────────────────────────────────
+WARNING: chezmoi identity fields are missing — git commits will fail
+         until you fix them.
+{{- if eq .git_user_name "" }}
+  • git_user_name  is empty
+{{- end }}
+{{- if eq .git_user_email "" }}
+  • git_user_email is empty
+{{- end }}
+{{- if eq .github_username "" }}
+  • github_username is empty
+{{- end }}
+
+Fix with either:
+  chezmoi edit-config
+or directly:
+  nvim ~/.config/chezmoi/chezmoi.toml
+
+Then re-run:
+  chezmoi apply
+────────────────────────────────────────────────────────────────────────
+EOF
+
+{{- end }}
