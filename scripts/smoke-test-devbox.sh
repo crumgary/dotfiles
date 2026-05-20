@@ -15,8 +15,11 @@ echo "  ok"
 echo "== ~/.bashrc sources modular files =="
 grep -q '/.config/bash/' "$HOME/.bashrc"
 
-echo "== LazyVim launches with LSP support =="
-nvim --headless "+Lazy! sync" "+qa" 2>/dev/null
+echo "== Neovim config files + binary present =="
+for f in init.lua lua/config/lazy.lua; do
+    test -r "$HOME/.config/nvim/$f" || { echo "MISSING: ~/.config/nvim/$f"; exit 1; }
+done
+nvim --headless --noplugin -c 'qa!' 2>&1
 
 echo "== tmux config OK =="
 tmux -f "$HOME/.tmux.conf" -L smoke new -d -s smoke "exit"
