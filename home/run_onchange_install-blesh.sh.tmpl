@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Idempotently install/update ble.sh to ~/.local/share/blesh.
+# chezmoi re-runs this when the hash below changes; bump BLESH_REF to force update.
+# BLESH_REF: v0.4.0-devel3
+
+{{- if eq .profile "embedded" }}
+exit 0
+{{- end }}
+
+set -euo pipefail
+
+BLESH_DIR="$HOME/.local/share/blesh-src"
+BLESH_INSTALL_DIR="$HOME/.local/share/blesh"
+BLESH_REF="v0.4.0-devel3"
+
+if [ ! -d "$BLESH_DIR/.git" ]; then
+    git clone --depth=1 --branch="$BLESH_REF" --recursive \
+        https://github.com/akinomyoga/ble.sh.git "$BLESH_DIR"
+else
+    (cd "$BLESH_DIR" && git fetch --depth=1 origin "$BLESH_REF" && git reset --hard FETCH_HEAD)
+fi
+
+# Build + install (make handles its own incremental build).
+make -C "$BLESH_DIR" -s install PREFIX="$HOME/.local"
+
+if [ ! -f "$BLESH_INSTALL_DIR/ble.sh" ]; then
+    echo "ble.sh install failed: $BLESH_INSTALL_DIR/ble.sh not found" >&2
+    exit 1
+fi
+
+echo "ble.sh installed at $BLESH_INSTALL_DIR/ble.sh"
