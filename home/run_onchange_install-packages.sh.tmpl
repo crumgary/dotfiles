@@ -56,14 +56,20 @@ install_apt() {
     # Profile-specific extras — best-effort. Each Ubuntu/Debian release has its quirks
     # (e.g., wslu missing from default repos on some Ubuntu versions); a single missing
     # extra shouldn't fail the whole bootstrap.
-    local p
+    local p ubuntu_major
+    ubuntu_major="$(. /etc/os-release 2>/dev/null && echo "${VERSION_ID%%.*}")"
     for p in "${extra_pkgs[@]}"; do
+        # wslu was deprecated for Ubuntu 26+ — gone from default repos AND the upstream PPA;
+        # skip cleanly there (WSL has built-in interop now). On older Ubuntus the PPA is the fallback.
+        if [ "$p" = "wslu" ] && [ "${ubuntu_major:-0}" -ge 26 ] 2>/dev/null; then
+            echo "wslu deprecated for Ubuntu ${ubuntu_major}+; skipping (use built-in WSL interop)" >&2
+            continue
+        fi
+
         if dpkg -s "$p" >/dev/null 2>&1; then continue; fi
         if $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y "$p"; then continue; fi
 
-        # wslu specifically isn't in default repos on every Ubuntu release; try the upstream PPA.
-        # Tolerate every failure mode — the PPA may not have packages for newer Ubuntu releases
-        # (e.g., 26.04 "resolute" at time of writing); just clean up and skip.
+        # On older Ubuntus, wslu may live only in the upstream PPA; try it.
         if [ "$p" = "wslu" ]; then
             echo "wslu not in default repos; trying upstream PPA (ppa:wslutilities/wslu)" >&2
             $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common >/dev/null 2>&1 || true
@@ -73,7 +79,7 @@ install_apt() {
                     continue
                 fi
                 # PPA didn't help — revert it so future apt-get update stays clean.
-                echo "wslu PPA doesn't ship packages for this Ubuntu release; removing PPA" >&2
+                echo "wslu PPA didn't help; removing PPA to keep apt clean" >&2
                 $WITH_SUDO add-apt-repository -y --remove ppa:wslutilities/wslu >/dev/null 2>&1 || true
                 $WITH_SUDO apt-get update -qq 2>/dev/null || true
             fi
