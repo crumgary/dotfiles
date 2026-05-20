@@ -1,0 +1,29 @@
+# ~/.bashrc.minimal — used on embedded targets where chezmoi can't run.
+# Copy this to ~/.bashrc on those machines. Stays compatible with busybox / dash-fallback semantics.
+
+case $- in *i*) ;; *) return ;; esac
+
+shopt -s checkwinsize 2>/dev/null || true
+
+# History.
+HISTSIZE=10000
+HISTFILESIZE=20000
+HISTCONTROL=ignoreboth
+
+# Color + safety aliases.
+if [ -x /usr/bin/dircolors ] || [ -x /bin/dircolors ]; then
+    alias ls='ls --color=auto' 2>/dev/null || true
+fi
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+alias grep='grep --color=auto'
+alias cp='cp -i'
+alias mv='mv -i'
+alias rm='rm -i'
+
+# Simple prompt (no starship, no ble.sh on embedded).
+PS1='\u@\h:\w\$ '
+
+# Local overrides, if any.
+[ -r ~/.bashrc.local ] && . ~/.bashrc.local
