@@ -7,13 +7,18 @@
 .config/bash/30-fzf.sh
 .config/bash/50-blesh.sh
 .config/bash/60-prompt.sh
-.config/bash/70-work-hook.sh
+.config/bash/70-overlays.sh
 .config/starship.toml
 .tmux.conf
+.ssh
 {{- end }}
 
 {{- if ne .profile "wsl" }}
 .config/bash/90-wsl.sh
+{{- end }}
+
+{{- if not .bootstrap_priv_overlay }}
+.config/dotfiles-priv
 {{- end }}
 
 {{- if not .work }}

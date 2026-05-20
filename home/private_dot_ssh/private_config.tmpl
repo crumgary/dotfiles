@@ -1,0 +1,14 @@
+# ~/.ssh/config — managed by chezmoi.
+# Per-host entries belong in ~/.ssh/config.d/, dropped there by overlays:
+#   ~/.ssh/config.d/personal.conf   ← from crumgary/dotfiles-priv
+#   ~/.ssh/config.d/work.conf       ← from crumgary/dotfiles-work
+# Include MUST come before any Host * block so per-host settings win.
+
+Include config.d/*
+
+# Sensible defaults applied to every host (overridden by earlier matches).
+Host *
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    AddKeysToAgent yes
+    HashKnownHosts yes

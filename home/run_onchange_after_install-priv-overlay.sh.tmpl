@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Install/update the personal overlay if requested at init time.
+
+{{- if .bootstrap_priv_overlay }}
+
+set -euo pipefail
+
+PRIV_DIR="$HOME/.config/dotfiles-priv"
+
+if [ ! -d "$PRIV_DIR/.git" ]; then
+    git clone "{{ .priv_repo_url }}" "$PRIV_DIR"
+else
+    (cd "$PRIV_DIR" && git pull --ff-only)
+fi
+
+"$PRIV_DIR/install.sh"
+
+{{- end }}

@@ -17,15 +17,25 @@
   {{- $wsl_windows_username = promptStringOnce . "wsl_windows_username" "Windows username (for /mnt/c/Users/<name>/ paths)" -}}
 {{- end -}}
 
+{{- /* Personal overlay (always available, regardless of work flag). */ -}}
+{{- $bootstrap_priv_overlay := promptBoolOnce . "bootstrap_priv_overlay" "Clone the personal overlay repo (crumgary/dotfiles-priv)? (true/false)" -}}
+{{- $priv_repo_url := "" -}}
+{{- if $bootstrap_priv_overlay -}}
+  {{- $priv_default_url := printf "git@github.com:%s/dotfiles-priv" $github_username -}}
+  {{- $priv_repo_url = promptStringOnce . "priv_repo_url" (printf "Personal repo URL (default: %s)" $priv_default_url) -}}
+  {{- if eq $priv_repo_url "" -}}{{- $priv_repo_url = $priv_default_url -}}{{- end -}}
+{{- end -}}
+
+{{- /* Work overlay (only on work machines). */ -}}
 {{- $bootstrap_work_overlay := false -}}
 {{- $work_repo_url          := "" -}}
 {{- $internal_registries_exist := false -}}
 {{- if $work -}}
   {{- $bootstrap_work_overlay = promptBoolOnce . "bootstrap_work_overlay" "Clone the work overlay repo (crumgary/dotfiles-work)? (true/false)" -}}
   {{- if $bootstrap_work_overlay -}}
-    {{- $default_url := printf "git@github.com:%s/dotfiles-work" $github_username -}}
-    {{- $work_repo_url = promptStringOnce . "work_repo_url" (printf "Work repo URL (default: %s)" $default_url) -}}
-    {{- if eq $work_repo_url "" -}}{{- $work_repo_url = $default_url -}}{{- end -}}
+    {{- $work_default_url := printf "git@github.com:%s/dotfiles-work" $github_username -}}
+    {{- $work_repo_url = promptStringOnce . "work_repo_url" (printf "Work repo URL (default: %s)" $work_default_url) -}}
+    {{- if eq $work_repo_url "" -}}{{- $work_repo_url = $work_default_url -}}{{- end -}}
   {{- end -}}
   {{- $internal_registries_exist = promptBoolOnce . "internal_registries_exist" "Does Voyager run internal npm/pip/cargo registries? (true/false)" -}}
 {{- end -}}
@@ -38,6 +48,8 @@
     work                      = {{ $work }}
     enable_ai_assistant       = {{ $enable_ai_assistant }}
     wsl_windows_username      = {{ $wsl_windows_username      | quote }}
+    bootstrap_priv_overlay    = {{ $bootstrap_priv_overlay }}
+    priv_repo_url             = {{ $priv_repo_url             | quote }}
     bootstrap_work_overlay    = {{ $bootstrap_work_overlay }}
     work_repo_url             = {{ $work_repo_url             | quote }}
     internal_registries_exist = {{ $internal_registries_exist }}
