@@ -1,0 +1,27 @@
+-- plugins/overrides.lua — tweaks to LazyVim's default plugin specs.
+
+return {
+  -- Theme.
+  { "folke/tokyonight.nvim", opts = { style = "moon" } },
+  { "LazyVim/LazyVim", opts = { colorscheme = "tokyonight" } },
+
+  -- Treesitter: ensure core grammars on every profile (gives lab syntax/folding without LSPs).
+  {
+    "nvim-treesitter/nvim-treesitter",
+    opts = function(_, opts)
+      opts.ensure_installed = opts.ensure_installed or {}
+      vim.list_extend(opts.ensure_installed, {
+        "bash", "c", "lua", "markdown", "markdown_inline", "python", "yaml", "json", "vim", "vimdoc",
+      })
+    end,
+  },
+
+{{- if eq .profile "lab" }}
+  -- lab profile: explicitly disable LSP / Mason / cmp / formatter machinery.
+  { "neovim/nvim-lspconfig",            enabled = false },
+  { "williamboman/mason.nvim",          enabled = false },
+  { "williamboman/mason-lspconfig.nvim", enabled = false },
+  { "hrsh7th/nvim-cmp",                 enabled = false },
+  { "stevearc/conform.nvim",            enabled = false },
+{{- end }}
+}
