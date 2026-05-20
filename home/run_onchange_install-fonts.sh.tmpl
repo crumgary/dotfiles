@@ -9,8 +9,8 @@ exit 0
 
 set -euo pipefail
 
-FONT_NAME="{{ .nerd_font | default "JetBrainsMono" }}"
-FONT_VERSION="{{ .nerd_font_version | default "3.2.1" }}"
+FONT_NAME="{{ .fonts.nerd_font }}"
+FONT_VERSION="{{ .fonts.nerd_font_version }}"
 URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/${FONT_NAME}.zip"
 
 LINUX_FONT_DIR="$HOME/.local/share/fonts/NerdFonts"
