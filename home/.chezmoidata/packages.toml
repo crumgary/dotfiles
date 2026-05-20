@@ -16,6 +16,9 @@ common = [
   "gnupg",
   "jq",
   "less",
+  "nodejs",   # for Mason-installed LSPs (pyright, jsonls, ts-ls, yaml-ls)
+  "npm",      # ditto
+  "python3-pip",
   "ripgrep",
   "tmux",
   "tree",
@@ -40,6 +43,9 @@ common = [
   "gnupg2",
   "jq",
   "less",
+  "nodejs",
+  "npm",
+  "python3-pip",
   "ripgrep",
   "tmux",
   "tree",
