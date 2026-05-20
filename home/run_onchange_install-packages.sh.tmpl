@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Detect OS family + profile, install packages via system manager,
+# fall back to release binaries for tools that aren't packaged or are too old.
+
+set -euo pipefail
+
+PROFILE="{{ .profile }}"
+WITH_SUDO=""
+if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    WITH_SUDO="sudo"
+fi
+
+# Detect package manager.
+PKG_MGR=""
+if   command -v apt-get >/dev/null 2>&1; then PKG_MGR="apt"
+elif command -v dnf     >/dev/null 2>&1; then PKG_MGR="dnf"
+elif command -v apk     >/dev/null 2>&1; then PKG_MGR="apk"
+fi
+
+{{- /* ---- apt path (Ubuntu/Debian) ---- */ -}}
+{{- if true }}
+install_apt() {
+    local pkgs=(
+{{- range (index .apt "common") }}
+        "{{ . }}"
+{{- end }}
+{{- range (index .apt $.profile) }}
+        "{{ . }}"
+{{- end }}
+    )
+    $WITH_SUDO apt-get update -qq
+    $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"
+}
+
+install_dnf() {
+    local pkgs=(
+{{- range (index .dnf "common") }}
+        "{{ . }}"
+{{- end }}
+{{- range (index .dnf $.profile) }}
+        "{{ . }}"
+{{- end }}
+    )
+    $WITH_SUDO dnf install -y "${pkgs[@]}"
+}
+{{- end }}
+
+# Skip system packages on embedded.
+if [ "$PROFILE" = "embedded" ]; then
+    echo "Profile=embedded: skipping system package install"
+else
+    case "$PKG_MGR" in
+        apt) install_apt ;;
+        dnf) install_dnf ;;
+        apk) echo "alpine: see README for manual apk steps"; ;;
+        *)   echo "WARNING: unknown package manager; install release binaries only" ;;
+    esac
+fi
+
+# ---- Release binaries to ~/.local/bin (no sudo) ----
+mkdir -p "$HOME/.local/bin"
+
+ARCH="$(uname -m)"
+case "$ARCH" in x86_64) ARCH_TAG="x86_64";; aarch64|arm64) ARCH_TAG="aarch64";; *) ARCH_TAG="$ARCH";; esac
+
+# eza
+EZA_VER="{{ index .release_binary "eza" }}"
+if ! command -v eza >/dev/null 2>&1; then
+    TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+    curl -fsSL "https://github.com/eza-community/eza/releases/download/v${EZA_VER}/eza_${ARCH_TAG}-unknown-linux-gnu.tar.gz" -o "$TMP/eza.tgz"
+    tar -xzf "$TMP/eza.tgz" -C "$TMP"
+    install -m 0755 "$TMP/eza" "$HOME/.local/bin/eza"
+fi
+
+# delta
+DELTA_VER="{{ index .release_binary "delta" }}"
+if ! command -v delta >/dev/null 2>&1; then
+    TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+    curl -fsSL "https://github.com/dandavison/delta/releases/download/${DELTA_VER}/delta-${DELTA_VER}-${ARCH_TAG}-unknown-linux-gnu.tar.gz" -o "$TMP/delta.tgz"
+    tar -xzf "$TMP/delta.tgz" -C "$TMP"
+    install -m 0755 "$TMP/delta-${DELTA_VER}-${ARCH_TAG}-unknown-linux-gnu/delta" "$HOME/.local/bin/delta"
+fi
+
+# Neovim (need ≥0.10 for current LazyVim; Ubuntu 22.04 ships 0.6).
+{{- if ne .profile "embedded" }}
+NVIM_VER="{{ index .release_binary "nvim" }}"
+NVIM_INSTALLED_VER="$(nvim --version 2>/dev/null | head -1 | awk '{print $2}' | sed 's/^v//' || true)"
+if [ -z "$NVIM_INSTALLED_VER" ] || [ "${NVIM_INSTALLED_VER%%.*}" -lt 10 ] 2>/dev/null; then
+    TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+    curl -fsSL "https://github.com/neovim/neovim/releases/download/v${NVIM_VER}/nvim-linux64.tar.gz" -o "$TMP/nvim.tgz"
+    tar -xzf "$TMP/nvim.tgz" -C "$HOME/.local/share/" --transform 's,^nvim-linux64,nvim,'
+    ln -sf "$HOME/.local/share/nvim/bin/nvim" "$HOME/.local/bin/nvim"
+fi
+{{- end }}
+
+# starship
+if ! command -v starship >/dev/null 2>&1; then
+    curl -fsSL https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$HOME/.local/bin"
+fi
+
+echo "package install complete (profile=$PROFILE, pkg_mgr=$PKG_MGR)"
