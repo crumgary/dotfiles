@@ -2,18 +2,41 @@
 # Install/update the private work overlay if requested at init time.
 
 {{ if and .work .bootstrap_work_overlay }}
-set -euo pipefail
+set -uo pipefail
 
 WORK_DIR="$HOME/.config/dotfiles-work"
+WORK_URL="{{ .work_repo_url }}"
 
 if [ ! -d "$WORK_DIR/.git" ]; then
-    git clone "{{ .work_repo_url }}" "$WORK_DIR"
+    if ! git clone "$WORK_URL" "$WORK_DIR" 2>&1; then
+        cat <<EOF >&2
+
+------------------------------------------------------------
+WARNING: could not clone the work overlay from
+  $WORK_URL
+Usually means SSH key on this machine isn't registered with the
+hosting GitHub account, or the repo URL needs to be HTTPS.
+
+To fix:
+  (a) Set up SSH key + register:
+        ssh-keygen -t ed25519 -C "you@example.com"
+        gh ssh-key add ~/.ssh/id_ed25519.pub --title "\$(hostname)"
+        chezmoi apply
+  (b) Switch to HTTPS:
+        chezmoi edit-config   # set work_repo_url accordingly
+        chezmoi apply
+------------------------------------------------------------
+EOF
+        exit 0
+    fi
 else
-    (cd "$WORK_DIR" && git pull --ff-only)
+    (cd "$WORK_DIR" && git pull --ff-only) || echo "WARNING: dotfiles-work pull failed; continuing" >&2
 fi
 
 # Marker file controls whether install.sh links registries.
 {{ if .internal_registries_exist }}touch "$WORK_DIR/.internal_registries_enabled"{{ else }}rm -f "$WORK_DIR/.internal_registries_enabled"{{ end }}
 
-"$WORK_DIR/install.sh"
+if [ -x "$WORK_DIR/install.sh" ]; then
+    "$WORK_DIR/install.sh"
+fi
 {{ end }}

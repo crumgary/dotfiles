@@ -3,16 +3,43 @@
 
 {{- if .bootstrap_priv_overlay }}
 
-set -euo pipefail
+set -uo pipefail
 
 PRIV_DIR="$HOME/.config/dotfiles-priv"
+PRIV_URL="{{ .priv_repo_url }}"
 
 if [ ! -d "$PRIV_DIR/.git" ]; then
-    git clone "{{ .priv_repo_url }}" "$PRIV_DIR"
+    if ! git clone "$PRIV_URL" "$PRIV_DIR" 2>&1; then
+        cat <<EOF >&2
+
+------------------------------------------------------------
+WARNING: could not clone the personal overlay from
+  $PRIV_URL
+This is usually because:
+  - SSH key on this machine isn't registered with GitHub yet, OR
+  - The repo URL needs to be HTTPS instead of SSH on this machine.
+
+To fix (pick one):
+  (a) Set up an SSH key + register with GitHub:
+        ssh-keygen -t ed25519 -C "you@example.com"
+        gh ssh-key add ~/.ssh/id_ed25519.pub --title "\$(hostname)"
+        chezmoi apply
+  (b) Switch this machine to HTTPS:
+        chezmoi edit-config
+        # set priv_repo_url = "https://github.com/<user>/dotfiles-priv"
+        chezmoi apply
+
+The rest of the bootstrap will continue.
+------------------------------------------------------------
+EOF
+        exit 0
+    fi
 else
-    (cd "$PRIV_DIR" && git pull --ff-only)
+    (cd "$PRIV_DIR" && git pull --ff-only) || echo "WARNING: dotfiles-priv pull failed; continuing" >&2
 fi
 
-"$PRIV_DIR/install.sh"
+if [ -x "$PRIV_DIR/install.sh" ]; then
+    "$PRIV_DIR/install.sh"
+fi
 
 {{- end }}

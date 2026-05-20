@@ -58,11 +58,22 @@ install_apt() {
     # extra shouldn't fail the whole bootstrap.
     local p
     for p in "${extra_pkgs[@]}"; do
-        if ! dpkg -s "$p" >/dev/null 2>&1; then
-            if ! $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y "$p"; then
-                echo "WARNING: apt could not install '$p' (skipping; install manually if needed)" >&2
+        if dpkg -s "$p" >/dev/null 2>&1; then continue; fi
+        if $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y "$p"; then continue; fi
+
+        # wslu specifically isn't in default repos on every Ubuntu release; try the upstream PPA.
+        if [ "$p" = "wslu" ]; then
+            echo "wslu not in default repos; adding upstream PPA (ppa:wslutilities/wslu)" >&2
+            $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common >/dev/null 2>&1 || true
+            if $WITH_SUDO add-apt-repository -y ppa:wslutilities/wslu >/dev/null 2>&1; then
+                $WITH_SUDO apt-get update -qq
+                if $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y wslu; then
+                    continue
+                fi
             fi
         fi
+
+        echo "WARNING: apt could not install '$p' (skipping; install manually if needed)" >&2
     done
 }
 
