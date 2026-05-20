@@ -1,0 +1,24 @@
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor swap / project files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Build artifacts
+*.log
+*.tmp
+tags
+compile_commands.json
+.cache/
+node_modules/
+
+# Direnv
+.envrc

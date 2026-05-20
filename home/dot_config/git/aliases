@@ -1,0 +1,18 @@
+[alias]
+    st       = status -sb
+    lg       = log --graph --pretty=format:'%C(auto)%h %s %C(dim)%ar %an%d'
+    ll       = log --graph --pretty=format:'%C(auto)%h %s %C(dim)%ar %an%d' -20
+    sw       = switch
+    swc      = switch -c
+    co       = checkout
+    cm       = commit -m
+    ca       = commit --amend --no-edit
+    fa       = fetch --all --prune
+    rb       = rebase
+    rbi      = rebase -i
+    rbm      = rebase main
+    unstage  = restore --staged
+    wip      = commit -am 'wip'
+    undo     = reset --soft HEAD~1
+    brd      = branch -D
+    brm      = branch --merged
