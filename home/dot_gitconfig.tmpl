@@ -27,7 +27,8 @@
     autosquash   = true
 
 [merge]
-    conflictstyle = zdiff3
+    # zdiff3 requires git >= 2.35; diff3 is the safe baseline on Ubuntu 22.04 (git 2.34.x).
+    conflictstyle = diff3
 
 [diff]
     algorithm  = histogram
