@@ -62,14 +62,20 @@ install_apt() {
         if $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y "$p"; then continue; fi
 
         # wslu specifically isn't in default repos on every Ubuntu release; try the upstream PPA.
+        # Tolerate every failure mode — the PPA may not have packages for newer Ubuntu releases
+        # (e.g., 26.04 "resolute" at time of writing); just clean up and skip.
         if [ "$p" = "wslu" ]; then
-            echo "wslu not in default repos; adding upstream PPA (ppa:wslutilities/wslu)" >&2
+            echo "wslu not in default repos; trying upstream PPA (ppa:wslutilities/wslu)" >&2
             $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common >/dev/null 2>&1 || true
             if $WITH_SUDO add-apt-repository -y ppa:wslutilities/wslu >/dev/null 2>&1; then
-                $WITH_SUDO apt-get update -qq
-                if $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y wslu; then
+                $WITH_SUDO apt-get update -qq 2>/dev/null || true
+                if $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y wslu 2>/dev/null; then
                     continue
                 fi
+                # PPA didn't help — revert it so future apt-get update stays clean.
+                echo "wslu PPA doesn't ship packages for this Ubuntu release; removing PPA" >&2
+                $WITH_SUDO add-apt-repository -y --remove ppa:wslutilities/wslu >/dev/null 2>&1 || true
+                $WITH_SUDO apt-get update -qq 2>/dev/null || true
             fi
         fi
 
