@@ -1,0 +1,7 @@
+# Default prompt answers — values here are only used if the prompt is skipped (test runs).
+# Actual machine answers live in ~/.config/chezmoi/chezmoi.toml after init.
+
+# NB: this file is committed and seen by every machine. Do NOT put identity here.
+[defaults]
+profile = "lab"
+work    = false

@@ -1,0 +1,68 @@
+# Single source of truth for package names.
+# The run_onchange_install-packages.sh.tmpl script reads this and installs the relevant set per profile + OS.
+
+[apt]
+# Ubuntu/Debian package names. eza, delta, current neovim handled via release binary later.
+common = [
+  "build-essential",
+  "ca-certificates",
+  "curl",
+  "git",
+  "git-lfs",
+  "gnupg",
+  "jq",
+  "less",
+  "ripgrep",
+  "fd-find",
+  "bat",
+  "zoxide",
+  "fzf",
+  "tmux",
+  "tree",
+  "unzip",
+  "wget",
+  "keychain",
+  "shellcheck",
+]
+wsl = ["wslu"]
+devbox = []
+lab = []
+embedded = []
+
+[dnf]
+# RHEL/AlmaLinux/Fedora package names.
+common = [
+  "@development-tools",
+  "ca-certificates",
+  "curl",
+  "git",
+  "git-lfs",
+  "gnupg2",
+  "jq",
+  "less",
+  "ripgrep",
+  "fd-find",
+  "bat",
+  "zoxide",
+  "fzf",
+  "tmux",
+  "tree",
+  "unzip",
+  "wget",
+  "keychain",
+  "ShellCheck",
+]
+wsl = []
+devbox = []
+lab = []
+embedded = []
+
+[release_binary]
+# Tools we always install from GitHub releases — version-pinned for consistency.
+eza    = "0.18.21"
+delta  = "0.18.2"
+nvim   = "0.10.2"
+
+[fonts]
+nerd_font           = "JetBrainsMono"
+nerd_font_version   = "3.2.1"

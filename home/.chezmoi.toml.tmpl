@@ -1,0 +1,43 @@
+{{- /* Init prompts — all machine-specific values live here, never in the repo */ -}}
+
+{{- $github_username := promptStringOnce . "github_username" "GitHub username (for repo URLs)" -}}
+{{- $git_user_name   := promptStringOnce . "git_user_name"   "Git user.name (e.g., 'Gary Crum')" -}}
+{{- $git_user_email  := promptStringOnce . "git_user_email"  "Git user.email" -}}
+
+{{- $profile := promptChoiceOnce . "profile" "Profile" (list "wsl" "devbox" "lab" "embedded") -}}
+{{- $work    := promptBoolOnce   . "work"    "Is this a work machine? (true/false)" -}}
+
+{{- $enable_ai_assistant := false -}}
+{{- if ne $profile "embedded" -}}
+  {{- $enable_ai_assistant = promptBoolOnce . "enable_ai_assistant" "Enable AI assistant in Neovim? (true/false)" -}}
+{{- end -}}
+
+{{- $wsl_windows_username := "" -}}
+{{- if eq $profile "wsl" -}}
+  {{- $wsl_windows_username = promptStringOnce . "wsl_windows_username" "Windows username (for /mnt/c/Users/<name>/ paths)" -}}
+{{- end -}}
+
+{{- $bootstrap_work_overlay := false -}}
+{{- $work_repo_url          := "" -}}
+{{- $internal_registries_exist := false -}}
+{{- if $work -}}
+  {{- $bootstrap_work_overlay = promptBoolOnce . "bootstrap_work_overlay" "Clone the work overlay repo (crumgary/dotfiles-work)? (true/false)" -}}
+  {{- if $bootstrap_work_overlay -}}
+    {{- $default_url := printf "git@github.com:%s/dotfiles-work" $github_username -}}
+    {{- $work_repo_url = promptStringOnce . "work_repo_url" (printf "Work repo URL (default: %s)" $default_url) -}}
+    {{- if eq $work_repo_url "" -}}{{- $work_repo_url = $default_url -}}{{- end -}}
+  {{- end -}}
+  {{- $internal_registries_exist = promptBoolOnce . "internal_registries_exist" "Does Voyager run internal npm/pip/cargo registries? (true/false)" -}}
+{{- end -}}
+
+[data]
+    github_username           = {{ $github_username           | quote }}
+    git_user_name             = {{ $git_user_name             | quote }}
+    git_user_email            = {{ $git_user_email            | quote }}
+    profile                   = {{ $profile                   | quote }}
+    work                      = {{ $work }}
+    enable_ai_assistant       = {{ $enable_ai_assistant }}
+    wsl_windows_username      = {{ $wsl_windows_username      | quote }}
+    bootstrap_work_overlay    = {{ $bootstrap_work_overlay }}
+    work_repo_url             = {{ $work_repo_url             | quote }}
+    internal_registries_exist = {{ $internal_registries_exist }}
