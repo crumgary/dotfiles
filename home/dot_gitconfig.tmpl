@@ -1,3 +1,5 @@
+{{- if eq .git_user_name  "" }}{{ fail "git_user_name is empty in chezmoi.toml; fix with: chezmoi edit-config" }}{{ end -}}
+{{- if eq .git_user_email "" }}{{ fail "git_user_email is empty in chezmoi.toml; fix with: chezmoi edit-config" }}{{ end -}}
 [user]
     name  = {{ .git_user_name  }}
     email = {{ .git_user_email }}
