@@ -1,0 +1,70 @@
+# ~/.config/starship.toml — rendered by chezmoi.
+# Two-line prompt: context line + bare $ line.
+
+format = """
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_status\
+$cmd_duration\
+$line_break\
+$character"""
+
+right_format = """$status$time"""
+
+add_newline = true
+
+[character]
+success_symbol = "[\\$](bold green)"
+error_symbol   = "[\\$](bold red)"
+
+[directory]
+truncation_length = 4
+truncate_to_repo  = true
+style             = "bold cyan"
+
+[git_branch]
+symbol = " "
+style  = "bold purple"
+
+[git_status]
+style = "bold yellow"
+
+[cmd_duration]
+min_time = 2000
+style    = "yellow"
+format   = "took [$duration]($style) "
+
+[status]
+disabled = false
+style    = "red"
+symbol   = "✗ "
+format   = "[$symbol$common_meaning$signal_name$maybe_int]($style) "
+
+[time]
+disabled = false
+format   = "[$time]($style) "
+style    = "dim"
+time_format = "%H:%M"
+
+{{- if .work }}
+# Work-marker palette: user@host rendered in red.
+[username]
+show_always = true
+style_user  = "bold red"
+format      = "[$user]($style)@"
+
+[hostname]
+ssh_only = false
+style    = "bold red"
+format   = "[$hostname]($style) "
+{{- else }}
+[username]
+show_always = false
+
+[hostname]
+ssh_only = true
+style    = "bold green"
+format   = "[$hostname]($style) "
+{{- end }}
