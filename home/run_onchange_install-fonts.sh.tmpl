@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Install JetBrainsMono Nerd Font.
+# - Linux: ~/.local/share/fonts/ + fc-cache.
+# - WSL only: also installs to Windows per-user font dir + HKCU registry.
+
+{{- if eq .profile "embedded" }}
+exit 0
+{{- end }}
+
+set -euo pipefail
+
+FONT_NAME="{{ .nerd_font | default "JetBrainsMono" }}"
+FONT_VERSION="{{ .nerd_font_version | default "3.2.1" }}"
+URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v${FONT_VERSION}/${FONT_NAME}.zip"
+
+LINUX_FONT_DIR="$HOME/.local/share/fonts/NerdFonts"
+MARKER="$LINUX_FONT_DIR/.installed-v${FONT_VERSION}"
+
+if [ ! -f "$MARKER" ]; then
+    mkdir -p "$LINUX_FONT_DIR"
+    TMP="$(mktemp -d)"
+    trap 'rm -rf "$TMP"' EXIT
+    echo "Downloading $FONT_NAME Nerd Font v$FONT_VERSION..."
+    curl -fsSL "$URL" -o "$TMP/font.zip"
+    unzip -qo "$TMP/font.zip" '*.ttf' -d "$LINUX_FONT_DIR"
+    command -v fc-cache >/dev/null 2>&1 && fc-cache -f "$LINUX_FONT_DIR" >/dev/null 2>&1 || true
+    touch "$MARKER"
+    echo "Installed Nerd Font to $LINUX_FONT_DIR"
+fi
+
+{{- if and (eq .profile "wsl") .wsl_windows_username }}
+# Windows-side install (per-user, no admin needed).
+WIN_FONT_DIR="/mnt/c/Users/{{ .wsl_windows_username }}/AppData/Local/Microsoft/Windows/Fonts"
+WIN_MARKER="$WIN_FONT_DIR/.dotfiles-installed-v${FONT_VERSION}"
+
+if [ ! -f "$WIN_MARKER" ] && [ -d "$(dirname "$WIN_FONT_DIR")" ]; then
+    mkdir -p "$WIN_FONT_DIR"
+    TMP="$(mktemp -d)"
+    trap 'rm -rf "$TMP"' EXIT
+    curl -fsSL "$URL" -o "$TMP/font.zip"
+    unzip -qo "$TMP/font.zip" '*.ttf' -d "$WIN_FONT_DIR"
+    # Register fonts in HKCU so Windows actually sees them.
+    powershell.exe -NoProfile -Command "
+        Get-ChildItem -Path '$(wslpath -w "$WIN_FONT_DIR")' -Filter '*.ttf' | ForEach-Object {
+            New-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts' \`
+                -Name (\$_.BaseName + ' (TrueType)') -Value \$_.FullName -PropertyType String -Force | Out-Null
+        }
+    " 2>/dev/null || echo "WARNING: PowerShell registration step failed; fonts copied but may need manual registration"
+    touch "$WIN_MARKER"
+    echo "Installed Nerd Font to Windows ($WIN_FONT_DIR)"
+    echo "REMINDER: set Windows Terminal / VSCode font to '${FONT_NAME} Nerd Font Mono' and restart the terminal"
+fi
+{{- end }}
+
+exit 0
