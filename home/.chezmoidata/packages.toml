@@ -2,7 +2,10 @@
 # The run_onchange_install-packages.sh.tmpl script reads this and installs the relevant set per profile + OS.
 
 [apt]
-# Ubuntu/Debian package names. eza, delta, current neovim handled via release binary later.
+# Ubuntu/Debian package names.
+# fd-find, bat, zoxide, fzf, keychain — moved to [release_binary] so they install without sudo
+# on machines where the user doesn't have it.
+# eza, delta, nvim, starship — release-binary too (versions in repos are too old).
 common = [
   "build-essential",
   "ca-certificates",
@@ -13,15 +16,10 @@ common = [
   "jq",
   "less",
   "ripgrep",
-  "fd-find",
-  "bat",
-  "zoxide",
-  "fzf",
   "tmux",
   "tree",
   "unzip",
   "wget",
-  "keychain",
   "shellcheck",
 ]
 wsl = ["wslu"]
@@ -30,7 +28,7 @@ lab = []
 embedded = []
 
 [dnf]
-# RHEL/AlmaLinux/Fedora package names.
+# RHEL/AlmaLinux/Fedora package names. Same release-binary fallback policy as apt.
 common = [
   "@development-tools",
   "ca-certificates",
@@ -41,15 +39,10 @@ common = [
   "jq",
   "less",
   "ripgrep",
-  "fd-find",
-  "bat",
-  "zoxide",
-  "fzf",
   "tmux",
   "tree",
   "unzip",
   "wget",
-  "keychain",
   "ShellCheck",
 ]
 wsl = []
@@ -59,9 +52,15 @@ embedded = []
 
 [release_binary]
 # Tools we always install from GitHub releases — version-pinned for consistency.
-eza    = "0.18.21"
-delta  = "0.18.2"
-nvim   = "0.10.2"
+# These are sudo-free and consistent across distros; bumping a version here updates every machine.
+eza      = "0.18.21"
+delta    = "0.18.2"
+nvim     = "0.10.2"
+fd       = "10.2.0"
+bat      = "0.24.0"
+zoxide   = "0.9.6"
+fzf      = "0.56.3"
+keychain = "2.9.4"
 
 [fonts]
 nerd_font           = "JetBrainsMono"

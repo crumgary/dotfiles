@@ -128,6 +128,55 @@ if [ -z "$NVIM_INSTALLED_VER" ] || [ "${NVIM_INSTALLED_VER%%.*}" -lt 10 ] 2>/dev
 fi
 {{- end }}
 
+# fd (binary published as `fd` upstream; alias `fdfind` symlinked for Debian-muscle-memory).
+FD_VER="{{ index .release_binary "fd" }}"
+if ! command -v fd >/dev/null 2>&1; then
+    TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+    curl -fsSL "https://github.com/sharkdp/fd/releases/download/v${FD_VER}/fd-v${FD_VER}-${ARCH_TAG}-unknown-linux-gnu.tar.gz" -o "$TMP/fd.tgz"
+    tar -xzf "$TMP/fd.tgz" -C "$TMP"
+    install -m 0755 "$TMP/fd-v${FD_VER}-${ARCH_TAG}-unknown-linux-gnu/fd" "$HOME/.local/bin/fd"
+    ln -sfn "$HOME/.local/bin/fd" "$HOME/.local/bin/fdfind"
+fi
+
+# bat (`batcat` symlink for Debian-muscle-memory).
+BAT_VER="{{ index .release_binary "bat" }}"
+if ! command -v bat >/dev/null 2>&1; then
+    TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+    curl -fsSL "https://github.com/sharkdp/bat/releases/download/v${BAT_VER}/bat-v${BAT_VER}-${ARCH_TAG}-unknown-linux-gnu.tar.gz" -o "$TMP/bat.tgz"
+    tar -xzf "$TMP/bat.tgz" -C "$TMP"
+    install -m 0755 "$TMP/bat-v${BAT_VER}-${ARCH_TAG}-unknown-linux-gnu/bat" "$HOME/.local/bin/bat"
+    ln -sfn "$HOME/.local/bin/bat" "$HOME/.local/bin/batcat"
+fi
+
+# zoxide
+ZOXIDE_VER="{{ index .release_binary "zoxide" }}"
+if ! command -v zoxide >/dev/null 2>&1; then
+    TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+    curl -fsSL "https://github.com/ajeetdsouza/zoxide/releases/download/v${ZOXIDE_VER}/zoxide-${ZOXIDE_VER}-${ARCH_TAG}-unknown-linux-musl.tar.gz" -o "$TMP/zoxide.tgz"
+    tar -xzf "$TMP/zoxide.tgz" -C "$TMP"
+    install -m 0755 "$TMP/zoxide" "$HOME/.local/bin/zoxide"
+fi
+
+# fzf
+FZF_VER="{{ index .release_binary "fzf" }}"
+if ! command -v fzf >/dev/null 2>&1; then
+    TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+    # fzf's release archive uses linux_amd64 / linux_arm64 naming.
+    case "$ARCH_TAG" in x86_64) FZF_ARCH="amd64";; aarch64) FZF_ARCH="arm64";; *) FZF_ARCH="$ARCH_TAG";; esac
+    curl -fsSL "https://github.com/junegunn/fzf/releases/download/v${FZF_VER}/fzf-${FZF_VER}-linux_${FZF_ARCH}.tar.gz" -o "$TMP/fzf.tgz"
+    tar -xzf "$TMP/fzf.tgz" -C "$TMP"
+    install -m 0755 "$TMP/fzf" "$HOME/.local/bin/fzf"
+fi
+
+# keychain (single Perl script from upstream).
+KEYCHAIN_VER="{{ index .release_binary "keychain" }}"
+if ! command -v keychain >/dev/null 2>&1; then
+    TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+    curl -fsSL "https://github.com/funtoo/keychain/archive/refs/tags/${KEYCHAIN_VER}.tar.gz" -o "$TMP/keychain.tgz"
+    tar -xzf "$TMP/keychain.tgz" -C "$TMP"
+    install -m 0755 "$TMP/keychain-${KEYCHAIN_VER}/keychain.sh" "$HOME/.local/bin/keychain"
+fi
+
 # starship
 if ! command -v starship >/dev/null 2>&1; then
     curl -fsSL https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$HOME/.local/bin"
