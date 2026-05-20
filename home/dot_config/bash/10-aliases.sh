@@ -24,5 +24,13 @@ alias ....='cd ../../..'
 alias h='history'
 alias j='jobs -l'
 
-# Cheat-sheet opener — populated by chezmoi at apply-time.
-alias cheat='${EDITOR:-less} ~/.config/dotfiles/cheatsheet.md'
+# Cheat-sheet opener. Render markdown with bat (syntax highlight + paging); fall back to less.
+# Defined as a function so we can pick the best available renderer at call time.
+cheat() {
+    local f="$HOME/.config/dotfiles/cheatsheet.md"
+    if   command -v glow    >/dev/null 2>&1; then glow "$f"
+    elif command -v bat     >/dev/null 2>&1; then bat --paging=always --language=markdown --style=plain "$f"
+    elif command -v batcat  >/dev/null 2>&1; then batcat --paging=always --language=markdown --style=plain "$f"
+    else "${PAGER:-less}" "$f"
+    fi
+}
