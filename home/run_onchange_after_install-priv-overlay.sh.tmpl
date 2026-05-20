@@ -21,7 +21,8 @@ This is usually because:
 
 To fix (pick one):
   (a) Set up an SSH key + register with GitHub:
-        ssh-keygen -t ed25519 -C "you@example.com"
+        ssh-keygen -t ed25519 -C "you@example.com" -f ~/.ssh/id_ed25519 -N ""
+        gh auth login                    # required before gh ssh-key add
         gh ssh-key add ~/.ssh/id_ed25519.pub --title "\$(hostname)"
         chezmoi apply
   (b) Switch this machine to HTTPS:

@@ -19,7 +19,8 @@ hosting GitHub account, or the repo URL needs to be HTTPS.
 
 To fix:
   (a) Set up SSH key + register:
-        ssh-keygen -t ed25519 -C "you@example.com"
+        ssh-keygen -t ed25519 -C "you@example.com" -f ~/.ssh/id_ed25519 -N ""
+        gh auth login                    # required before gh ssh-key add
         gh ssh-key add ~/.ssh/id_ed25519.pub --title "\$(hostname)"
         chezmoi apply
   (b) Switch to HTTPS:
