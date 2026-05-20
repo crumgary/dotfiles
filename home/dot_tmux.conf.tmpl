@@ -1,0 +1,85 @@
+# ~/.tmux.conf — managed by chezmoi.
+
+# Prefix: Ctrl-a (more reachable than Ctrl-b).
+unbind C-b
+set -g prefix C-a
+bind C-a send-prefix
+
+# Terminal capabilities + true color.
+set -g default-terminal "tmux-256color"
+set -ag terminal-overrides ",*256col*:RGB"
+
+# Vi mode + faster escape.
+set -g mode-keys vi
+set -sg escape-time 10
+
+# Mouse + history.
+set -g mouse on
+set -g history-limit 50000
+
+# Index from 1, renumber on close.
+set -g base-index 1
+setw -g pane-base-index 1
+set -g renumber-windows on
+
+# Splits inherit current path.
+bind '|' split-window -h -c "#{pane_current_path}"
+bind '-' split-window -v -c "#{pane_current_path}"
+unbind '"'; unbind '%'
+
+# Vim-style pane navigation.
+bind h select-pane -L
+bind j select-pane -D
+bind k select-pane -U
+bind l select-pane -R
+
+# Pane resize.
+bind -r H resize-pane -L 5
+bind -r J resize-pane -D 5
+bind -r K resize-pane -U 5
+bind -r L resize-pane -R 5
+
+# Reload config.
+bind r source-file ~/.tmux.conf \; display "tmux.conf reloaded"
+
+# Rename session.
+bind R command-prompt -I "#S" "rename-session '%%'"
+
+# Toggle synchronize-panes (handy on multiple lab boards).
+bind g setw synchronize-panes \; display "sync-panes: #{?pane_synchronized,ON,OFF}"
+
+# Copy-mode like vim.
+bind -T copy-mode-vi v send -X begin-selection
+bind -T copy-mode-vi y send -X copy-pipe-and-cancel
+
+# Use OSC52 clipboard wherever possible.
+set -g set-clipboard on
+
+# Status bar — left: session, right: host + time. Tinted red on work.
+{{- if .work }}
+set -g status-style "bg=colour52,fg=white"
+set -g status-left  "#[bold] #S #[default] "
+set -g status-right "#[fg=red,bold]#H#[default] %H:%M "
+{{- else }}
+set -g status-style "bg=colour236,fg=white"
+set -g status-left  "#[bold] #S #[default] "
+set -g status-right "#[fg=green]#H#[default] %H:%M "
+{{- end }}
+
+# ---------- TPM plugins ----------
+{{- if ne .profile "lab" }}
+set -g @plugin 'tmux-plugins/tpm'
+set -g @plugin 'tmux-plugins/tmux-sensible'
+set -g @plugin 'tmux-plugins/tmux-resurrect'
+set -g @plugin 'tmux-plugins/tmux-yank'
+{{- if ne .profile "embedded" }}
+set -g @plugin 'tmux-plugins/tmux-continuum'
+set -g @continuum-restore 'on'
+set -g @continuum-save-interval '15'
+{{- end }}
+
+# Auto-init TPM (must be at the very bottom).
+if "test ! -d ~/.tmux/plugins/tpm" \
+   "display 'TPM not installed; run chezmoi apply to install'"
+run '~/.tmux/plugins/tpm/tpm'
+{{- end }}
