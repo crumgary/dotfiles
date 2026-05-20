@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Install/update the private work overlay if requested at init time.
+
+{{ if and .work .bootstrap_work_overlay }}
+set -euo pipefail
+
+WORK_DIR="$HOME/.config/dotfiles-work"
+
+if [ ! -d "$WORK_DIR/.git" ]; then
+    git clone "{{ .work_repo_url }}" "$WORK_DIR"
+else
+    (cd "$WORK_DIR" && git pull --ff-only)
+fi
+
+# Marker file controls whether install.sh links registries.
+{{ if .internal_registries_exist }}touch "$WORK_DIR/.internal_registries_enabled"{{ else }}rm -f "$WORK_DIR/.internal_registries_enabled"{{ end }}
+
+"$WORK_DIR/install.sh"
+{{ end }}
