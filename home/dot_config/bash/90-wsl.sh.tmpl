@@ -1,0 +1,21 @@
+# ~/.config/bash/90-wsl.sh — rendered only on profile=wsl
+
+# Browser launcher (wslu's wslview hands URLs back to Windows).
+if command -v wslview >/dev/null 2>&1; then
+    export BROWSER=wslview
+fi
+
+# Windows VS Code's `code` command (so `code .` works from WSL).
+{{- if .wsl_windows_username }}
+VSCODE_BIN="/mnt/c/Users/{{ .wsl_windows_username }}/AppData/Local/Programs/Microsoft VS Code/bin"
+if [ -d "$VSCODE_BIN" ]; then
+    case ":$PATH:" in *":$VSCODE_BIN:"*) ;; *) PATH="$VSCODE_BIN:$PATH" ;; esac
+    export PATH
+fi
+unset VSCODE_BIN
+{{- end }}
+
+# Use Windows clipboard for OSC52-incapable terminals.
+if command -v clip.exe >/dev/null 2>&1; then
+    alias pbcopy='clip.exe'
+fi
