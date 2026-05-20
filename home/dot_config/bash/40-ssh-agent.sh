@@ -9,7 +9,8 @@ done
 
 if command -v keychain >/dev/null 2>&1 && [ ${#SSH_KEYS[@]} -gt 0 ]; then
     # keychain handles agent lifecycle, key adding, and prints env vars to source.
-    eval "$(keychain --eval --quiet --agents ssh "${SSH_KEYS[@]}")"
+    # NOTE: --agents was deprecated in keychain 2.9; the binary auto-detects ssh now.
+    eval "$(keychain --eval --quiet "${SSH_KEYS[@]}")"
 else
     # Fallback: minimal ssh-agent management.
     if [ -z "$SSH_AUTH_SOCK" ] && [ -r "$HOME/.ssh_agent_env" ]; then
