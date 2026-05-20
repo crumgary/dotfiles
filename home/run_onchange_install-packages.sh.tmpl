@@ -53,6 +53,17 @@ install_apt() {
     if apt_needs_install "${common_pkgs[@]}"; then
         $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y "${common_pkgs[@]}"
     fi
+
+    # Generate en_US.UTF-8 if it's not already available — fresh Ubuntu minimal images often
+    # ship with only C/POSIX/C.UTF-8 generated, causing noisy "cannot change locale" warnings
+    # whenever /etc/default/locale (or LC_ALL) references en_US.UTF-8.
+    if ! locale -a 2>/dev/null | grep -qix 'en_US\.utf-\?8'; then
+        $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y locales >/dev/null 2>&1 || true
+        if command -v locale-gen >/dev/null 2>&1; then
+            echo "generating en_US.UTF-8 locale" >&2
+            $WITH_SUDO locale-gen en_US.UTF-8 >/dev/null 2>&1 || true
+        fi
+    fi
     # Profile-specific extras — best-effort. Each Ubuntu/Debian release has its quirks
     # (e.g., wslu missing from default repos on some Ubuntu versions); a single missing
     # extra shouldn't fail the whole bootstrap.
