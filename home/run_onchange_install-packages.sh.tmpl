@@ -178,15 +178,28 @@ if ! command -v delta >/dev/null 2>&1; then
     install -m 0755 "$TMP/delta-${DELTA_VER}-${ARCH_TAG}-unknown-linux-gnu/delta" "$HOME/.local/bin/delta"
 fi
 
-# Neovim (need ≥0.10 for current LazyVim; Ubuntu 22.04 ships 0.6).
+# Neovim — current LazyVim requires >= 0.11.0.
+# Release artifact name changed in 0.11: was nvim-linux64.tar.gz, now nvim-linux-x86_64.tar.gz.
 {{- if ne .profile "embedded" }}
 NVIM_VER="{{ index .release_binary "nvim" }}"
 NVIM_INSTALLED_VER="$(nvim --version 2>/dev/null | head -1 | awk '{print $2}' | sed 's/^v//' || true)"
-if [ -z "$NVIM_INSTALLED_VER" ] || [ "${NVIM_INSTALLED_VER%%.*}" -lt 10 ] 2>/dev/null; then
+NVIM_INSTALLED_MINOR=0
+if [ -n "$NVIM_INSTALLED_VER" ]; then
+    NVIM_INSTALLED_MINOR="$(echo "$NVIM_INSTALLED_VER" | cut -d. -f2)"
+fi
+if [ "${NVIM_INSTALLED_MINOR:-0}" -lt 11 ] 2>/dev/null; then
     TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-    curl -fsSL "https://github.com/neovim/neovim/releases/download/v${NVIM_VER}/nvim-linux64.tar.gz" -o "$TMP/nvim.tgz"
-    tar -xzf "$TMP/nvim.tgz" -C "$HOME/.local/share/" --transform 's,^nvim-linux64,nvim,'
-    ln -sf "$HOME/.local/share/nvim/bin/nvim" "$HOME/.local/bin/nvim"
+    curl -fsSL "https://github.com/neovim/neovim/releases/download/v${NVIM_VER}/nvim-linux-x86_64.tar.gz" -o "$TMP/nvim.tgz"
+    tar -xzf "$TMP/nvim.tgz" -C "$TMP"
+    NVIM_EXTRACTED="$(find "$TMP" -maxdepth 1 -type d -name 'nvim-linux*' | head -1)"
+    rm -rf "$HOME/.local/share/nvim-runtime"
+    mv "$NVIM_EXTRACTED" "$HOME/.local/share/nvim-runtime"
+    ln -sfn "$HOME/.local/share/nvim-runtime/bin/nvim" "$HOME/.local/bin/nvim"
+    # NOTE: an earlier version of this script extracted nvim INTO ~/.local/share/nvim/,
+    # which is also nvim's XDG data dir (where lazy.nvim stores plugins). On affected boxes
+    # the data dir now has stale bin/share/lib subtrees alongside the lazy/ plugin tree.
+    # Manual cleanup (safe to run when nvim is closed):
+    #   for d in bin share lib; do rm -rf ~/.local/share/nvim/$d; done
 fi
 {{- end }}
 
