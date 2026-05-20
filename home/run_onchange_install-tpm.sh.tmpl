@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Install TPM (Tmux Plugin Manager). Idempotent.
+# TPM_REF: v3.1.0
+
+{{- if eq .profile "embedded" }}
+exit 0
+{{- end }}
+
+set -euo pipefail
+
+TPM_DIR="$HOME/.tmux/plugins/tpm"
+TPM_REF="v3.1.0"
+
+if [ ! -d "$TPM_DIR/.git" ]; then
+    mkdir -p "$(dirname "$TPM_DIR")"
+    git clone --depth=1 --branch="$TPM_REF" https://github.com/tmux-plugins/tpm "$TPM_DIR"
+else
+    (cd "$TPM_DIR" && git fetch --depth=1 origin "$TPM_REF" && git reset --hard FETCH_HEAD)
+fi
+
+# Install configured plugins non-interactively (no-op if tmux isn't installed yet).
+if command -v tmux >/dev/null 2>&1 && [ -r "$HOME/.tmux.conf" ]; then
+    "$TPM_DIR/bin/install_plugins" || true
+fi
+
+echo "TPM installed at $TPM_DIR"
