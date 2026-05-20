@@ -1,0 +1,25 @@
+" ~/.vimrc.minimal — used on embedded targets and when nvim is absent.
+
+set nocompatible
+syntax on
+filetype plugin indent on
+
+set number relativenumber
+set ruler showcmd
+set incsearch hlsearch ignorecase smartcase
+set tabstop=4 shiftwidth=4 expandtab smartindent
+set autoindent
+set wildmenu wildmode=longest:full,full
+set backspace=indent,eol,start
+set scrolloff=8 sidescrolloff=8
+set termguicolors
+set encoding=utf-8
+set undofile
+silent! set undodir=~/.vim/undo
+silent! call mkdir(expand('~/.vim/undo'), 'p')
+
+" Sensible leader.
+let mapleader = " "
+
+" Clear hlsearch with Esc-Esc.
+nnoremap <silent> <Esc><Esc> :nohlsearch<CR>
