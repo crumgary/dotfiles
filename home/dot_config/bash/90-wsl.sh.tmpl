@@ -15,6 +15,20 @@ fi
 unset VSCODE_BIN
 {{- end }}
 
+# VS Code Remote Server CLI fallback — the `code` shim lives at a commit-hashed
+# path that changes whenever VS Code Server updates. Append the newest one to
+# PATH so `code .` still works when /mnt/c interop is broken (only effective
+# while VS Code is open with this WSL workspace; cold-start needs the Windows
+# shim above).
+if [ -d "$HOME/.vscode-server/bin" ]; then
+    VSCODE_REMOTE_CLI="$(ls -1dt "$HOME"/.vscode-server/bin/*/bin/remote-cli 2>/dev/null | head -n1)"
+    if [ -n "$VSCODE_REMOTE_CLI" ] && [ -x "$VSCODE_REMOTE_CLI/code" ]; then
+        case ":$PATH:" in *":$VSCODE_REMOTE_CLI:"*) ;; *) PATH="$PATH:$VSCODE_REMOTE_CLI" ;; esac
+        export PATH
+    fi
+    unset VSCODE_REMOTE_CLI
+fi
+
 # Use Windows clipboard for OSC52-incapable terminals.
 if command -v clip.exe >/dev/null 2>&1; then
     alias pbcopy='clip.exe'
