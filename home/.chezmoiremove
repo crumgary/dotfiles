@@ -1,0 +1,6 @@
+# Files that should be REMOVED from $HOME if they exist. Patterns relative to $HOME.
+# Use this for cleanup of files that used to be managed by chezmoi but were renamed/retired.
+
+# Renamed 70-work-hook.sh -> 70-overlays.sh (added priv overlay support).
+# chezmoi doesn't auto-delete on source-side rename, so list it here.
+.config/bash/70-work-hook.sh
