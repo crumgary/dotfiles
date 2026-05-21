@@ -252,6 +252,15 @@ if ! command -v keychain >/dev/null 2>&1; then
     install -m 0755 "$TMP/keychain-${KEYCHAIN_VER}/keychain.sh" "$HOME/.local/bin/keychain"
 fi
 
+# glow (markdown renderer for `cheat` command)
+GLOW_VER="{{ index .release_binary "glow" }}"
+if ! command -v glow >/dev/null 2>&1; then
+    TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+    curl -fsSL "https://github.com/charmbracelet/glow/releases/download/v${GLOW_VER}/glow_${GLOW_VER}_Linux_x86_64.tar.gz" -o "$TMP/glow.tgz"
+    tar -xzf "$TMP/glow.tgz" -C "$TMP"
+    install -m 0755 "$(find "$TMP" -type f -name glow | head -1)" "$HOME/.local/bin/glow"
+fi
+
 # starship
 if ! command -v starship >/dev/null 2>&1; then
     curl -fsSL https://starship.rs/install.sh | sh -s -- --yes --bin-dir "$HOME/.local/bin"
