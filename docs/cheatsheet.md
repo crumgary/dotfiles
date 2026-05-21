@@ -22,7 +22,11 @@ Change a per-machine answer: `chezmoi edit-config && chezmoi apply`
 ## Shell
 
 - **Modern swaps** (apply when binary is present): `ls`→eza, `bat` (replacement for `cat`), `rg`, `fd`/`fdfind`, `cd`→zoxide (`cdi` for interactive), `delta` in `git diff`/`log -p`.
-- **ble.sh autosuggestions:** type a command, see the ghost-text suggestion from history. **Right-arrow** accepts.
+- **ble.sh autosuggestions:** type a command, see the ghost-text suggestion from history.
+  - **Right-arrow / End / Ctrl-E** — accept the full suggestion
+  - **Alt-F** — accept one word
+  - **Tab** — normal tab-completion (not bound to autosuggest accept by default)
+  - Customize in `~/.config/blesh/init.sh` (e.g., add `ble-bind -m auto_complete -f 'TAB' auto_complete/insert` to make Tab accept too).
 - **Local-only tweaks:** edit `~/.bashrc.local` (not managed).
 
 ## fzf keybinds
