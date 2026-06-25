@@ -22,3 +22,6 @@ node_modules/
 
 # Direnv
 .envrc
+
+# Claude Code per-project local settings
+**/.claude/settings.local.json
