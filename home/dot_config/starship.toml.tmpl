@@ -8,10 +8,14 @@ $directory\
 $git_branch\
 $git_status\
 $cmd_duration\
+$status\
+$time\
 $line_break\
 $character"""
 
-right_format = """$status$time"""
+# No right_format: anything here floats on the input line and gets pulled into
+# multi-line terminal selections. $status and $time now render inline on the
+# context line above instead.
 
 add_newline = true
 
