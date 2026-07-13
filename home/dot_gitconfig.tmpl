@@ -74,6 +74,13 @@
 
 [include]
     path = ~/.config/git/aliases
+{{- if ne .personal_git_email "" }}
+
+# Directory-based identity override: repos physically under this gitdir prefix
+# use the personal email from ~/.config/git/personal instead of the default above.
+[includeIf "gitdir:{{ .personal_gitdir }}"]
+    path = ~/.config/git/personal
+{{- end }}
 
 # Preserve historical safe.directory entries for Voyager work-trees.
 [safe]

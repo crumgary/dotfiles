@@ -1,0 +1,6 @@
+{{- if ne .personal_git_email "" -}}
+# Personal identity, pulled in by an includeIf in ~/.gitconfig for repos
+# under the configured gitdir prefix. Only the email is overridden.
+[user]
+    email = {{ .personal_git_email }}
+{{- end -}}
