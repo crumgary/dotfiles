@@ -1,8 +1,8 @@
+{{- if or (eq .git_user_name "") (eq .git_user_email "") (eq .github_username "") -}}
 #!/usr/bin/env bash
-# Warn (but don't fail) at the end of every apply if git identity is missing.
-# Runs every apply (not run_onchange or run_once) because it's cheap.
-
-{{- if or (eq .git_user_name "") (eq .git_user_email "") (eq .github_username "") }}
+# Warn (but don't fail) at the end of an apply when git identity is missing.
+# Emitted ONLY when a field is empty; when all are set this template renders to
+# nothing, so chezmoi skips the script and it drops out of `chezmoi status`.
 
 cat <<'EOF' >&2
 
@@ -28,5 +28,4 @@ Then re-run:
   chezmoi apply
 ────────────────────────────────────────────────────────────────────────
 EOF
-
-{{- end }}
+{{ end -}}
