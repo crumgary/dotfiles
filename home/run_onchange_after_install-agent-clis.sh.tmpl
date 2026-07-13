@@ -1,0 +1,61 @@
+{{- if .install_agent_clis -}}
+#!/usr/bin/env bash
+# Install AI coding CLIs + supporting tooling. Gated by install_agent_clis.
+# Idempotent: each tool is skipped if already present. Sorts after
+# install-packages (system node/npm), so npm/npx-based installs have a runtime.
+# Bump the marker to force a re-run after editing the tool list.
+# marker: v1 claude agy opencode codex herdr nvm playwright
+set -uo pipefail
+
+# Make already-installed user-local tools visible to the `have` guards.
+export PATH="$HOME/.local/bin:$HOME/.opencode/bin:$PATH"
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# --- nvm + a modern Node (needed by codex and playwright) --------------------
+export NVM_DIR="$HOME/.nvm"
+if [ ! -s "$NVM_DIR/nvm.sh" ]; then
+    echo "installing nvm..."
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.5/install.sh | bash
+fi
+# shellcheck disable=SC1091
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+if have nvm; then
+    nvm which default >/dev/null 2>&1 || {
+        echo "installing Node LTS via nvm..."
+        nvm install --lts >/dev/null 2>&1 && nvm alias default 'lts/*' >/dev/null 2>&1
+    }
+    nvm use default >/dev/null 2>&1 || true
+fi
+
+# --- self-contained CLI installers (no Node required) ------------------------
+have claude   || curl -fsSL https://claude.ai/install.sh              | bash
+have agy      || curl -fsSL https://antigravity.google/cli/install.sh | bash
+have opencode || curl -fsSL https://opencode.ai/install               | bash
+have herdr    || curl -fsSL https://herdr.dev/install.sh              | sh
+
+# --- npm-based CLI -----------------------------------------------------------
+if have npm; then
+    have codex || npm install -g @openai/codex
+else
+    echo "npm not found; skipping codex (needs Node)" >&2
+fi
+
+# --- Playwright browsers -----------------------------------------------------
+# --with-deps installs system libraries via apt (needs sudo). Use it when we
+# can prompt (a tty), are root, or have passwordless sudo; otherwise install
+# browsers only and leave a hint so nothing hangs in non-interactive runs.
+if have npx; then
+    if [ "$(id -u)" -eq 0 ] || [ -t 0 ] || sudo -n true 2>/dev/null; then
+        npx --yes playwright install --with-deps
+    else
+        echo "playwright: installing browsers only (no non-interactive sudo)." >&2
+        echo "  run 'npx playwright install --with-deps' later for system libraries." >&2
+        npx --yes playwright install
+    fi
+else
+    echo "npx not found; skipping playwright browsers" >&2
+fi
+
+echo "agent CLIs: done"
+{{- end -}}

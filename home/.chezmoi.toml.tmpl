@@ -16,6 +16,12 @@
   {{- $enable_ai_assistant = promptBoolOnce . "enable_ai_assistant" "Enable AI assistant in Neovim? (true/false)" -}}
 {{- end -}}
 
+{{- /* AI coding CLIs + supporting tooling (claude/agy/opencode/codex, nvm, playwright). */ -}}
+{{- $install_agent_clis := false -}}
+{{- if ne $profile "embedded" -}}
+  {{- $install_agent_clis = promptBoolOnce . "install_agent_clis" "Install AI coding CLIs (claude/agy/opencode/codex) + nvm & Playwright? (true/false)" -}}
+{{- end -}}
+
 {{- $wsl_windows_username := "" -}}
 {{- if eq $profile "wsl" -}}
   {{- $wsl_windows_username = promptStringOnce . "wsl_windows_username" "Windows username (for /mnt/c/Users/<name>/ paths)" -}}
@@ -60,6 +66,7 @@
     profile                   = {{ $profile                   | quote }}
     work                      = {{ $work }}
     enable_ai_assistant       = {{ $enable_ai_assistant }}
+    install_agent_clis        = {{ $install_agent_clis }}
     wsl_windows_username      = {{ $wsl_windows_username      | quote }}
     bootstrap_priv_overlay    = {{ $bootstrap_priv_overlay }}
     priv_repo_url             = {{ $priv_repo_url             | quote }}
