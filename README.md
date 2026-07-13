@@ -58,6 +58,24 @@ Each overlay has the same shape:
 
 `~/.ssh/config` itself (managed by this public repo) does just `Include config.d/*` so both overlays compose cleanly without conflicting. The public repo is fully usable without either overlay.
 
+## Shared agent instructions
+
+One canonical instruction file, `~/.config/agents/AGENTS.md`, is symlinked into
+the global location each AI coding agent reads, so all of them share the same
+rules and you edit them in one place:
+
+| Tool | Reads | Managed as |
+|---|---|---|
+| Claude Code | `~/.claude/CLAUDE.md` | symlink → `~/.config/agents/AGENTS.md` |
+| Codex | `~/.codex/AGENTS.md` | symlink → same |
+| Antigravity (`agy`) | `~/.gemini/AGENTS.md` | symlink → same |
+| Pi | `~/.pi/agent/AGENTS.md` | symlink → same |
+
+Claude Code reads `CLAUDE.md` (not `AGENTS.md`), so its symlink is named
+accordingly; the others use the cross-tool `AGENTS.md` name. The symlinks are
+created by chezmoi even when a tool isn't installed yet, so a fresh machine is
+ready the moment you add one. Not deployed on the `embedded` profile.
+
 ## Custom source location
 
 By default chezmoi keeps its source in `~/.local/share/chezmoi`. To work on the
