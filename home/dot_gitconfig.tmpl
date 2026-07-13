@@ -76,9 +76,13 @@
     path = ~/.config/git/aliases
 {{- if ne .personal_git_email "" }}
 
-# Directory-based identity override: repos physically under this gitdir prefix
-# use the personal email from ~/.config/git/personal instead of the default above.
-[includeIf "gitdir:{{ .personal_gitdir }}"]
+# Identity override by remote: any repo whose remote is under your personal
+# GitHub account uses the personal email from ~/.config/git/personal instead of
+# the default above - regardless of where the repo lives on disk. Needs git
+# >= 2.36 (see run_onchange_install-modern-git); older git ignores these blocks.
+[includeIf "hasconfig:remote.*.url:https://github.com/{{ .github_username }}/**"]
+    path = ~/.config/git/personal
+[includeIf "hasconfig:remote.*.url:git@github.com:{{ .github_username }}/**"]
     path = ~/.config/git/personal
 {{- end }}
 

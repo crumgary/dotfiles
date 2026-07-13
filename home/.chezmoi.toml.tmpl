@@ -59,13 +59,8 @@
   {{- if eq $convenience_symlink_dir "" -}}{{- $convenience_symlink_dir = $conv_default -}}{{- end -}}
 {{- end -}}
 
-{{- /* Optional directory-based git identity override (git includeIf). */ -}}
-{{- $personal_git_email := promptStringOnce . "personal_git_email" "Personal git email for a directory-based override (blank to skip)" -}}
-{{- $personal_gitdir := "" -}}
-{{- if ne $personal_git_email "" -}}
-  {{- $personal_gitdir = promptStringOnce . "personal_gitdir" (printf "Git dir prefix that uses it (default: ~/github/%s/)" $github_username) -}}
-  {{- if eq $personal_gitdir "" -}}{{- $personal_gitdir = printf "~/github/%s/" $github_username -}}{{- end -}}
-{{- end -}}
+{{- /* Optional git identity override: repos on your personal GitHub use this email. */ -}}
+{{- $personal_git_email := promptStringOnce . "personal_git_email" "Personal git email for repos under your GitHub account (blank to skip)" -}}
 
 [data]
     github_username           = {{ $github_username           | quote }}
@@ -84,4 +79,3 @@
     create_convenience_symlinks = {{ $create_convenience_symlinks }}
     convenience_symlink_dir     = {{ $convenience_symlink_dir     | quote }}
     personal_git_email          = {{ $personal_git_email          | quote }}
-    personal_gitdir             = {{ $personal_gitdir             | quote }}

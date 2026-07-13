@@ -1,0 +1,28 @@
+{{- if ne .profile "embedded" -}}
+#!/usr/bin/env bash
+# Ensure git >= 2.36 so `includeIf hasconfig:remote.*.url` works. Ubuntu LTS
+# ships 2.34; the git-core PPA provides current git. Debian/Ubuntu (apt) only -
+# other distros generally already ship a modern git. No-op once git is >= 2.36.
+set -uo pipefail
+
+command -v apt-get >/dev/null 2>&1 || exit 0   # only handle Debian/Ubuntu here
+
+v="$(git --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)"
+major="${v%%.*}"; minor="${v#*.}"
+if [ "${major:-0}" -gt 2 ] || { [ "${major:-0}" -eq 2 ] && [ "${minor:-0}" -ge 36 ]; }; then
+    exit 0
+fi
+
+SUDO=""
+if [ "$(id -u)" -ne 0 ]; then
+    command -v sudo >/dev/null 2>&1 || { echo "modern-git: need git >= 2.36 but no sudo; skipping" >&2; exit 0; }
+    SUDO="sudo"
+fi
+
+echo "upgrading git to >= 2.36 via git-core PPA (current: ${v:-unknown})..." >&2
+$SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common >/dev/null 2>&1 || true
+$SUDO add-apt-repository -y ppa:git-core/ppa || { echo "modern-git: could not add git-core PPA; skipping" >&2; exit 0; }
+$SUDO apt-get update -qq || true
+$SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y git || true
+echo "modern-git: now $(git --version)" >&2
+{{- end -}}
