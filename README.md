@@ -58,6 +58,23 @@ Each overlay has the same shape:
 
 `~/.ssh/config` itself (managed by this public repo) does just `Include config.d/*` so both overlays compose cleanly without conflicting. The public repo is fully usable without either overlay.
 
+## Custom source location
+
+By default chezmoi keeps its source in `~/.local/share/chezmoi`. To work on the
+repo somewhere friendlier, clone it wherever you like and symlink the default
+location at it:
+
+```bash
+git clone https://github.com/crumgary/dotfiles ~/github/crumgary/dotfiles-src/dotfiles
+cd ~/github/crumgary/dotfiles-src/dotfiles
+./scripts/link-source.sh
+```
+
+`link-source.sh` points `~/.local/share/chezmoi` at this clone, so every
+`chezmoi` command works with no `--source` flag and no `sourceDir` in
+`chezmoi.toml` (which `chezmoi init` would overwrite anyway). It's idempotent;
+pass `--force` if a real `~/.local/share/chezmoi` directory is already there.
+
 ## Pull updates
 
 ```bash
