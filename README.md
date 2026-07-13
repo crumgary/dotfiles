@@ -8,7 +8,7 @@ My personal dotfiles, managed by [chezmoi](https://www.chezmoi.io/). Public — 
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply crumgary/dotfiles
 ```
 
-You'll be prompted for: GitHub username, git name/email, profile (`wsl`/`devbox`/`lab`/`embedded`), work flag, AI-assistant flag, whether to clone the personal overlay (and/or the work overlay), and (on WSL only) Windows username. Answers persist at `~/.config/chezmoi/chezmoi.toml` — re-runs of `chezmoi apply` are silent.
+You'll be prompted for: GitHub username, git name/email, profile (`wsl`/`devbox`/`lab`/`embedded`), work flag, AI-assistant flag, whether to clone the personal overlay (and/or the work overlay), whether to create convenience shortcuts to your repos (and where), and (on WSL only) Windows username. Answers persist at `~/.config/chezmoi/chezmoi.toml` — re-runs of `chezmoi apply` are silent.
 
 ## What this installs
 
@@ -76,22 +76,22 @@ accordingly; the others use the cross-tool `AGENTS.md` name. The symlinks are
 created by chezmoi even when a tool isn't installed yet, so a fresh machine is
 ready the moment you add one. Not deployed on the `embedded` profile.
 
-## Custom source location
+## Convenience shortcuts
 
-By default chezmoi keeps its source in `~/.local/share/chezmoi`. To work on the
-repo somewhere friendlier, clone it wherever you like and symlink the default
-location at it:
+The repos live at their standard locations (`~/.local/share/chezmoi` and
+`~/.config/dotfiles-{priv,work}`). If you'd rather reach them from one memorable
+place, answer yes to the convenience-shortcuts prompt at init. chezmoi then
+symlinks that directory at the real locations (default `~/github/<username>/dotfiles-src`):
 
-```bash
-git clone https://github.com/crumgary/dotfiles ~/github/crumgary/dotfiles-src/dotfiles
-cd ~/github/crumgary/dotfiles-src/dotfiles
-./scripts/link-source.sh
+```
+~/github/<username>/dotfiles-src/dotfiles      -> ~/.local/share/chezmoi
+~/github/<username>/dotfiles-src/dotfiles-priv -> ~/.config/dotfiles-priv
+~/github/<username>/dotfiles-src/dotfiles-work -> ~/.config/dotfiles-work
 ```
 
-`link-source.sh` points `~/.local/share/chezmoi` at this clone, so every
-`chezmoi` command works with no `--source` flag and no `sourceDir` in
-`chezmoi.toml` (which `chezmoi init` would overwrite anyway). It's idempotent;
-pass `--force` if a real `~/.local/share/chezmoi` directory is already there.
+These are pure navigation aids - editing through a shortcut is identical to
+editing the real repo. Only overlays you actually installed are linked. Change
+the directory (or turn it off) any time with `chezmoi edit-config`.
 
 ## Pull updates
 

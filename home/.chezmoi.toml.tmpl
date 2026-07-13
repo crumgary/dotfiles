@@ -44,6 +44,15 @@
   {{- $internal_registries_exist = promptBoolOnce . "internal_registries_exist" "Does Voyager run internal npm/pip/cargo registries? (true/false)" -}}
 {{- end -}}
 
+{{- /* Convenience symlinks — mirror the real repo locations under one memorable dir. */ -}}
+{{- $create_convenience_symlinks := promptBoolOnce . "create_convenience_symlinks" "Create convenience symlinks to your dotfile repos under one memorable dir? (true/false)" -}}
+{{- $convenience_symlink_dir := "" -}}
+{{- if $create_convenience_symlinks -}}
+  {{- $conv_default := printf "%s/github/%s/dotfiles-src" .chezmoi.homeDir $github_username -}}
+  {{- $convenience_symlink_dir = promptStringOnce . "convenience_symlink_dir" (printf "Directory for those shortcuts (default: %s)" $conv_default) -}}
+  {{- if eq $convenience_symlink_dir "" -}}{{- $convenience_symlink_dir = $conv_default -}}{{- end -}}
+{{- end -}}
+
 [data]
     github_username           = {{ $github_username           | quote }}
     git_user_name             = {{ $git_user_name             | quote }}
@@ -57,3 +66,5 @@
     bootstrap_work_overlay    = {{ $bootstrap_work_overlay }}
     work_repo_url             = {{ $work_repo_url             | quote }}
     internal_registries_exist = {{ $internal_registries_exist }}
+    create_convenience_symlinks = {{ $create_convenience_symlinks }}
+    convenience_symlink_dir     = {{ $convenience_symlink_dir     | quote }}

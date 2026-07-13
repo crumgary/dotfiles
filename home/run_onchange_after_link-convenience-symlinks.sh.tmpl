@@ -1,0 +1,32 @@
+{{- if .create_convenience_symlinks -}}
+#!/usr/bin/env bash
+# Create memorable shortcuts pointing at the real dotfile repo locations, e.g.
+#   <dir>/dotfiles      -> ~/.local/share/chezmoi
+#   <dir>/dotfiles-priv -> ~/.config/dotfiles-priv
+#   <dir>/dotfiles-work -> ~/.config/dotfiles-work
+# Sorts after install-*-overlay (alphabetical), so overlay targets already exist.
+# Re-runs only when the target dir or the set of enabled overlays changes.
+# marker: dir={{ .convenience_symlink_dir }} priv={{ .bootstrap_priv_overlay }} work={{ .work }}/{{ .bootstrap_work_overlay }}
+set -uo pipefail
+
+DIR="{{ .convenience_symlink_dir }}"
+mkdir -p "$DIR"
+
+link_to() {  # target linkname — create/refresh a symlink, never clobber a real file
+    local target="$1" link="$2"
+    if [ -e "$link" ] && [ ! -L "$link" ]; then
+        echo "WARNING: $link exists and is not a symlink; leaving it alone" >&2
+        return
+    fi
+    ln -sfn "$target" "$link"
+}
+
+# Main dotfiles source: chezmoi's source is <repo>/home, so the repo root is its parent.
+link_to "$(dirname "{{ .chezmoi.sourceDir }}")" "$DIR/dotfiles"
+
+# Overlays: only link the ones that are actually installed.
+[ -d "$HOME/.config/dotfiles-priv" ] && link_to "$HOME/.config/dotfiles-priv" "$DIR/dotfiles-priv"
+[ -d "$HOME/.config/dotfiles-work" ] && link_to "$HOME/.config/dotfiles-work" "$DIR/dotfiles-work"
+
+echo "Convenience symlinks ready in $DIR"
+{{- end -}}
