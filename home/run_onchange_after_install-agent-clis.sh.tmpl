@@ -4,7 +4,7 @@
 # Idempotent: each tool is skipped if already present. Sorts after
 # install-packages (system node/npm), so npm/npx-based installs have a runtime.
 # Bump the marker to force a re-run after editing the tool list.
-# marker: v2 claude agy opencode codex herdr nvm playwright (keep ~/.bashrc clean)
+# marker: v3 claude agy opencode codex herdr claude-mem nvm playwright (keep ~/.bashrc clean)
 set -uo pipefail
 
 # Make already-installed user-local tools visible to the `have` guards.
@@ -53,6 +53,14 @@ if have npm; then
     have codex || npm install -g @openai/codex
 else
     echo "npm not found; skipping codex (needs Node)" >&2
+fi
+
+# --- claude-mem (memory tool: plugin + worker) -------------------------------
+# Installs the TOOL only. The ~/.claude-mem database is seeded/synced separately
+# and never lives in the dotfiles. Skip if already installed so we don't
+# surprise-upgrade (and migrate) an existing memory database.
+if have npm && ! ls -d "$HOME"/.claude/plugins/cache/thedotmack/claude-mem/* >/dev/null 2>&1; then
+    npx claude-mem@latest install
 fi
 
 # --- Playwright browsers -----------------------------------------------------
