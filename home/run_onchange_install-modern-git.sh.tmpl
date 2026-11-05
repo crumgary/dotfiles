@@ -20,9 +20,9 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 echo "upgrading git to >= 2.36 via git-core PPA (current: ${v:-unknown})..." >&2
-$SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common >/dev/null 2>&1 || true
+$SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove software-properties-common >/dev/null 2>&1 || true
 $SUDO add-apt-repository -y ppa:git-core/ppa || { echo "modern-git: could not add git-core PPA; skipping" >&2; exit 0; }
 $SUDO apt-get update -qq || true
-$SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y git || true
+$SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove git || true
 echo "modern-git: now $(git --version)" >&2
 {{- end -}}

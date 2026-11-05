@@ -9,6 +9,8 @@
 common = [
   "build-essential",
   "ca-certificates",
+  "fontconfig",
+  "gawk",
   "curl",
   "gh",
   "git",
@@ -34,14 +36,18 @@ embedded = []
 # release-binary fallback below when these versions are unavailable.
 ubuntu_26_04 = [
   "eza", "bat", "fd-find", "zoxide", "fzf", "keychain", "glow",
-  "git-delta", "starship", "fontconfig", "locales",
+  "git-delta", "starship", "locales",
 ]
 
 [dnf]
+# AlmaLinux 9 uses this comps ID; other RPM targets retain their existing group.
+almalinux_9_development_group = "development"
 # RHEL/AlmaLinux/Fedora package names. Same release-binary fallback policy as apt.
 common = [
   "@development-tools",
   "ca-certificates",
+  "fontconfig",
+  "gawk",
   "curl",
   "gh",
   "git",
@@ -57,6 +63,7 @@ common = [
   "wget",
   "ShellCheck",
   "vim-enhanced",
+  "glibc-langpack-en",
 ]
 wsl = []
 devbox = []
@@ -90,3 +97,160 @@ embedded = ["sh", "vi"]
 
 [doctor.bundles]
 coding = ["claude", "agy", "opencode", "codex", "herdr", "node", "npm"]
+
+# Managed system requirements follow signed host repositories. Tool release
+# pins and artifact integrity stay in config/tools.lock.json.
+
+[managed.ubuntu]
+releases = ["22.04", "24.04", "26.04"]
+manager = "apt"
+browser = "playwright"
+
+[managed.ubuntu.packages.gh]
+repository = "github-cli"
+name = "gh"
+commands = ["gh"]
+
+[managed.ubuntu.packages.acli]
+repository = "acli"
+name = "acli"
+commands = ["acli"]
+
+[managed.ubuntu.packages.skopeo]
+name = "skopeo"
+commands = ["skopeo"]
+
+[managed.ubuntu.packages.asciinema]
+name = "asciinema"
+commands = ["asciinema"]
+
+[managed.ubuntu.packages.nodejs]
+repository = "nodesource"
+name = "nodejs"
+commands = ["node", "npm"]
+
+[managed.ubuntu.packages.ffmpeg]
+name = "ffmpeg"
+commands = ["ffmpeg"]
+
+[managed.ubuntu.packages.imagemagick]
+name = "imagemagick"
+commands = ["magick|convert"]
+
+[managed.ubuntu.packages.pandoc]
+name = "pandoc"
+commands = ["pandoc"]
+
+[managed.ubuntu.packages.poppler-utils]
+name = "poppler-utils"
+commands = ["pdftotext"]
+
+[managed.ubuntu.packages.librsvg2-bin]
+name = "librsvg2-bin"
+commands = ["rsvg-convert"]
+
+[managed.ubuntu.repositories.github-cli]
+key_url = "https://cli.github.com/packages/githubcli-archive-keyring.gpg"
+key_sha256 = "6084d5d7bd8e288441e0e94fc6275570895da18e6751f70f057485dc2d1a811b"
+uri = "https://cli.github.com/packages"
+format = "gpg"
+
+[managed.ubuntu.repositories.acli]
+key_url = "https://acli.atlassian.com/gpg/public-key.asc"
+key_sha256 = "807d20626236b4e319de8af42a647674ff281e25dd44001e899180d911b7c5e3"
+uri = "https://acli.atlassian.com/linux/deb"
+format = "asc"
+
+[managed.ubuntu.repositories.nodesource]
+key_url = "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key"
+key_sha256 = "b42e0321dabdc24e892115da705cf061167eac12a317f23d329862d0aa0a271d"
+uri = "https://deb.nodesource.com/node_{node_major}.x"
+format = "asc"
+suite = "nodistro"
+
+[managed.almalinux]
+releases = ["9"]
+manager = "dnf"
+browser = "system"
+
+[managed.almalinux.packages.gh]
+repository = "github-cli"
+name = "gh"
+commands = ["gh"]
+
+[managed.almalinux.packages.acli]
+repository = "acli"
+name = "acli"
+commands = ["acli"]
+
+[managed.almalinux.packages.skopeo]
+name = "skopeo"
+commands = ["skopeo"]
+
+[managed.almalinux.packages.asciinema]
+name = "asciinema"
+commands = ["asciinema"]
+
+[managed.almalinux.packages.nodejs]
+repository = "nodesource"
+name = "nodejs"
+commands = ["node", "npm"]
+
+[managed.almalinux.packages.ffmpeg]
+repository = "rpmfusion-free"
+name = "ffmpeg"
+commands = ["ffmpeg"]
+
+[managed.almalinux.packages.imagemagick]
+name = "ImageMagick"
+commands = ["magick|convert"]
+
+[managed.almalinux.packages.pandoc]
+name = "pandoc"
+commands = ["pandoc"]
+
+[managed.almalinux.packages.poppler-utils]
+name = "poppler-utils"
+commands = ["pdftotext"]
+
+[managed.almalinux.packages.librsvg2-bin]
+name = "librsvg2-tools"
+commands = ["rsvg-convert"]
+
+[managed.almalinux.packages.chromium]
+name = "chromium"
+commands = ["chromium-browser|chromium"]
+
+[managed.almalinux.repositories.github-cli]
+uri = "https://cli.github.com/packages/rpm"
+key_url = "https://cli.github.com/packages/githubcli-archive-keyring.asc"
+key_sha256 = "cec6e9ed82d3949ca5f4428cc968b41ef5e7416cb3653cdfc2a421977663bbfd"
+
+[managed.almalinux.repositories.acli]
+uri = "https://acli.atlassian.com/linux/rpm/"
+key_url = "https://acli.atlassian.com/gpg/public-key-rpm.asc"
+key_sha256 = "84925b05177ef717c71f2d7d72008114ed3837586949f3aab027b687bfd729c0"
+repo_gpgcheck = true
+
+[managed.almalinux.repositories.nodesource]
+uri = "https://rpm.nodesource.com/pub_{node_major}.x/nodistro/nodejs/x86_64"
+key_url = "https://rpm.nodesource.com/gpgkey/ns-operations-public.key"
+key_sha256 = "cfb2b38ceed5893e02d77a9fb3755f70eeea40e5740505fd02307f0814bc3519"
+module_hotfixes = true
+
+[managed.almalinux.prerequisites]
+packages = ["dnf-plugins-core", "epel-release"]
+repositories = ["crb"]
+
+# HyperFrames requires libx264 for its default MP4 render. The distro's
+# ffmpeg-free build lacks that encoder; use the signed RPM Fusion free build.
+[managed.almalinux.repositories.rpmfusion-free]
+uri = "https://download1.rpmfusion.org/free/el/updates/9/x86_64/"
+key_url = "https://download1.rpmfusion.org/free/el/RPM-GPG-KEY-rpmfusion-free-el-9"
+key_sha256 = "ec2c037f6014641cd12195121d97a871cadf385186a20ec3a7757dcd84907031"
+
+# Chromium dependencies from the pinned Playwright build; no privileged npm installer.
+[managed.ubuntu.browser_dependencies]
+"22.04" = ["xvfb", "fonts-noto-color-emoji", "fonts-unifont", "libfontconfig1", "libfreetype6", "xfonts-cyrillic", "xfonts-scalable", "fonts-liberation", "fonts-ipafont-gothic", "fonts-wqy-zenhei", "fonts-tlwg-loma-otf", "fonts-freefont-ttf", "libasound2", "libatk-bridge2.0-0", "libatk1.0-0", "libatspi2.0-0", "libcairo2", "libcups2", "libdbus-1-3", "libdrm2", "libgbm1", "libglib2.0-0", "libnspr4", "libnss3", "libpango-1.0-0", "libwayland-client0", "libx11-6", "libxcb1", "libxcomposite1", "libxdamage1", "libxext6", "libxfixes3", "libxkbcommon0", "libxrandr2"]
+"24.04" = ["xvfb", "fonts-noto-color-emoji", "fonts-unifont", "libfontconfig1", "libfreetype6", "xfonts-cyrillic", "xfonts-scalable", "fonts-liberation", "fonts-ipafont-gothic", "fonts-wqy-zenhei", "fonts-tlwg-loma-otf", "fonts-freefont-ttf", "libasound2t64", "libatk-bridge2.0-0t64", "libatk1.0-0t64", "libatspi2.0-0t64", "libcairo2", "libcups2t64", "libdbus-1-3", "libdrm2", "libgbm1", "libglib2.0-0t64", "libnspr4", "libnss3", "libpango-1.0-0", "libx11-6", "libxcb1", "libxcomposite1", "libxdamage1", "libxext6", "libxfixes3", "libxkbcommon0", "libxrandr2"]
+"26.04" = ["xvfb", "fonts-noto-color-emoji", "fonts-unifont", "libfontconfig1", "libfreetype6", "xfonts-cyrillic", "xfonts-scalable", "fonts-liberation", "fonts-ipafont-gothic", "fonts-wqy-zenhei", "fonts-tlwg-loma-otf", "fonts-freefont-ttf", "libasound2t64", "libatk-bridge2.0-0t64", "libatk1.0-0t64", "libatspi2.0-0t64", "libcairo2", "libcups2t64", "libdbus-1-3", "libdrm2", "libgbm1", "libglib2.0-0t64", "libnspr4", "libnss3", "libpango-1.0-0", "libx11-6", "libxcb1", "libxcomposite1", "libxdamage1", "libxext6", "libxfixes3", "libxkbcommon0", "libxrandr2"]

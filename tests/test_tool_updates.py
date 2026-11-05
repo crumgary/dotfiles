@@ -16,7 +16,7 @@ from provision import tool_updates, version_catalog
 
 def catalog():
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "runtime_major": 26,
         "developer": {
             "apt": {},
@@ -378,4 +378,4 @@ class UnifiedInstallerTests(unittest.TestCase):
             arguments = command.call_args.args[0]
             self.assertEqual(arguments[2], str(root / "scripts/install-tools"))
             self.assertIn("--from-chezmoi", arguments)
-            self.assertEqual(arguments[-2:], ["--upgrade-apt", "gh"])
+            self.assertEqual(arguments[-2:], ["--upgrade-system", "gh"])

@@ -65,14 +65,14 @@ install_apt() {
     $WITH_SUDO apt-get update -qq
     # Common packages — strict; missing means broken setup.
     if apt_needs_install "${common_pkgs[@]}"; then
-        $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y "${common_pkgs[@]}"
+        $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove "${common_pkgs[@]}"
     fi
 
     # Generate en_US.UTF-8 if it's not already available — fresh Ubuntu minimal images often
     # ship with only C/POSIX/C.UTF-8 generated, causing noisy "cannot change locale" warnings
     # whenever /etc/default/locale (or LC_ALL) references en_US.UTF-8.
     if ! locale -a 2>/dev/null | grep -qix 'en_US\.utf-\?8'; then
-        $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y locales >/dev/null 2>&1 || true
+        $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove locales >/dev/null 2>&1 || true
         if command -v locale-gen >/dev/null 2>&1; then
             echo "generating en_US.UTF-8 locale" >&2
             $WITH_SUDO locale-gen en_US.UTF-8 >/dev/null 2>&1 || true
@@ -92,15 +92,15 @@ install_apt() {
         fi
 
         if dpkg -s "$p" >/dev/null 2>&1; then continue; fi
-        if $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y "$p"; then continue; fi
+        if $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove "$p"; then continue; fi
 
         # On older Ubuntus, wslu may live only in the upstream PPA; try it.
         if [ "$p" = "wslu" ]; then
             echo "wslu not in default repos; trying upstream PPA (ppa:wslutilities/wslu)" >&2
-            $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common >/dev/null 2>&1 || true
+            $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove software-properties-common >/dev/null 2>&1 || true
             if $WITH_SUDO add-apt-repository -y ppa:wslutilities/wslu >/dev/null 2>&1; then
                 $WITH_SUDO apt-get update -qq 2>/dev/null || true
-                if $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y wslu 2>/dev/null; then
+                if $WITH_SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove wslu 2>/dev/null; then
                     continue
                 fi
                 # PPA didn't help — revert it so future apt-get update stays clean.
@@ -114,11 +114,23 @@ install_apt() {
     done
 }
 
-# Returns 0 if any rpm in "$@" is NOT installed.
+# Group IDs are DNF metadata, not RPM names.
+dnf_package_installed() {
+    case "$1" in
+        @*) LC_ALL=C dnf -q group list --ids "${1#@}" | awk -v id="${1#@}" '
+                /^Installed Groups:/ { installed=1; next }
+                /^[^[:space:]]/ { installed=0 }
+                installed && index($0, "(" id ")") { found=1 }
+                END { exit !found }' ;;
+        *) rpm -q "$1" >/dev/null 2>&1 ;;
+    esac
+}
+
+# Returns 0 if any package or group in "$@" is NOT installed.
 dnf_needs_install() {
     local p
     for p in "$@"; do
-        rpm -q "$p" >/dev/null 2>&1 || return 0
+        dnf_package_installed "$p" || return 0
     done
     return 1
 }
@@ -134,6 +146,20 @@ install_dnf() {
         "{{ . }}"
 {{- end }}
     )
+    local distro_id distro_version index
+    distro_id="$(. /etc/os-release && printf '%s' "$ID")"
+    distro_version="$(. /etc/os-release && printf '%s' "$VERSION_ID")"
+    if [ "$distro_id" = almalinux ] && [ "${distro_version%%.*}" = 9 ]; then
+        for index in "${!common_pkgs[@]}"; do
+            if [ "${common_pkgs[$index]}" = @development-tools ]; then
+                common_pkgs[index]="@{{ .dnf.almalinux_9_development_group }}"
+            elif [ "${common_pkgs[$index]}" = curl ] && rpm -q curl-minimal >/dev/null 2>&1; then
+                # Alma minimal images already provide HTTPS curl. Retain that
+                # provider instead of forcing a conflicting libcurl replacement.
+                common_pkgs[index]=curl-minimal
+            fi
+        done
+    fi
     if ! dnf_needs_install "${common_pkgs[@]}" "${extra_pkgs[@]}"; then
         echo "dnf: all packages already installed; skipping sudo dnf"
         return 0
@@ -142,6 +168,14 @@ install_dnf() {
         echo "dnf: missing packages but no sudo available; skipping" >&2
         return 0
     fi
+    # AlmaLinux 9 provides baseline gh and ShellCheck through EPEL. Bootstrap
+    # its signed distro release package before the later managed-tools hook.
+    if [ "$distro_id" = almalinux ] && [ "${distro_version%%.*}" = 9 ]; then
+        if dnf_needs_install dnf-plugins-core epel-release; then
+            $WITH_SUDO dnf install -y dnf-plugins-core epel-release
+        fi
+        $WITH_SUDO dnf config-manager --set-enabled crb
+    fi
     # Common — strict.
     if dnf_needs_install "${common_pkgs[@]}"; then
         $WITH_SUDO dnf install -y "${common_pkgs[@]}"
@@ -149,7 +183,7 @@ install_dnf() {
     # Profile extras — best-effort.
     local p
     for p in "${extra_pkgs[@]}"; do
-        if ! rpm -q "$p" >/dev/null 2>&1; then
+        if ! dnf_package_installed "$p"; then
             $WITH_SUDO dnf install -y "$p" || echo "WARNING: dnf could not install '$p'" >&2
         fi
     done

@@ -3,8 +3,8 @@
 
 import sys
 
-if sys.version_info < (3, 11):  # noqa: UP036 - guard users invoking an older system Python
-    print("error: Python 3.11 or newer is required.", file=sys.stderr)
+if sys.version_info < (3, 9):  # noqa: UP036 - guard users invoking an older system Python
+    print("error: Python 3.9 or newer is required.", file=sys.stderr)
     sys.exit(2)
 sys.dont_write_bytecode = True
 from pathlib import Path

@@ -7,6 +7,7 @@ import stat
 import subprocess
 from pathlib import Path
 
+from .host_platform import detect_host, system_recipe
 from .inventory import OVERLAYS, InputError, current_data, read_toml
 from .managed import inspect_files
 
@@ -227,7 +228,7 @@ def inspect(record, home, source):
     return findings
 
 
-def managed_requirements(catalog, selected):
+def managed_requirements(catalog, selected, system_packages=None):
     """Derive command requirements from the installer catalog without execution."""
     developer = catalog["developer"]
     aliases = {
@@ -237,7 +238,11 @@ def managed_requirements(catalog, selected):
         "librsvg2-bin": ["rsvg-convert"],
     }
     commands, versions = [], {}
-    for package, version in developer["apt"].items():
+    if system_packages is not None:
+        for entry in system_packages.values():
+            commands.extend(entry["commands"])
+    legacy_apt = developer.get("apt", {}) if system_packages is None else {}
+    for package, version in legacy_apt.items():
         names = aliases.get(package, [package])
         commands.extend(names)
         versions[names[0]] = version
@@ -289,8 +294,16 @@ def inspect_tools(source, record, add):
     if "developer" in record["bundles"]:
         tool_catalog = source / "config/tools.lock.json"
         try:
+            try:
+                native_packages = system_recipe(detect_host(), source)["packages"]
+            except (KeyError, OSError):
+                native_packages = (
+                    None  # Original fixture and legacy source declarations.
+                )
             managed, pinned = managed_requirements(
-                json.loads(tool_catalog.read_text()), record.get("apps", [])
+                json.loads(tool_catalog.read_text()),
+                record.get("apps", []),
+                native_packages,
             )
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             add(

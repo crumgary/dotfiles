@@ -4,13 +4,24 @@ Maintainer reference for `scripts/install-tools`. For everyday operation and
 login steps, start with the [setup guide](setup.md). Exact versions, revisions
 and hashes live in `config/tools.lock.json`.
 
-## Current platform scope
+## Platforms and package policy
 
-The managed installer currently accepts only Ubuntu 26.04 x86_64. Its system
-packages, repositories and native artifacts are tied to that target. The older
-baseline apt/dnf paths do not make this new bundle portable. Supporting other
-Ubuntu releases and Red Hat systems requires target-specific package recipes
-and artifact resolution; do not reuse Ubuntu package-version baselines on them.
+The initial x86_64 matrix is Ubuntu 22.04, 24.04 and 26.04, plus AlmaLinux 9.
+Host-native package names, repositories, signing-key hashes and browser choices
+are declared under `[managed]` in `home/.chezmoidata/packages.toml`. The installer
+detects the host and selects its recipe before making changes. Other operating
+systems and architectures are rejected rather than given an Ubuntu recipe.
+
+`config/tools.lock.json` pins portable native/npm/Python tool releases and skill
+sources. System package versions follow the host's signed repositories; Ubuntu
+package revisions are not imposed on AlmaLinux or another Ubuntu release. The
+Node major remains catalog policy, installed through the matching NodeSource
+apt or dnf repository. Existing newer Node majors are retained with an error
+rather than silently downgraded.
+
+Python 3.9 or newer runs the installer. Python 3.9/3.10 use the included licensed
+TOML parser offline; newer Python uses its standard library. System Python is not
+replaced. Graphify continues to use its separate uv-managed Python environment.
 
 ## Configure and run
 
@@ -46,9 +57,8 @@ For direct installation, run `python3 -B scripts/install-tools --apply --from-ch
 To preview an explicit app selection without reading local chezmoi data, use
 `python3 -B scripts/install-tools --dry-run --apps claude,codex`.
 
-Dry run does not install, access the network or create state. Apply requires the
-supported platform and a normal user with passwordless sudo. The single chezmoi
-hook fingerprints the catalog, entry point and internal installation modules.
+Dry run does not install, access the network or create state. Apply requires a supported target and a normal user with passwordless sudo. The single chezmoi hook fingerprints the catalog, system recipes, entry point
+and internal installation modules.
 The updater invokes this same installer with its validated candidate catalog.
 Disabling a selection does not uninstall tools or delete their data.
 
@@ -56,25 +66,37 @@ Disabling a selection does not uninstall tools or delete their data.
 
 | Tools | Source and location |
 |---|---|
-| GitHub CLI | Official signed GitHub apt repository. |
-| Atlassian CLI | Official signed Atlassian apt repository. |
-| Node and npm | NodeSource signed apt repository for the declared Node major. |
-| Container inspection, terminal recording and media/document utilities | Ubuntu apt packages. |
+| GitHub CLI | Official signed apt or rpm repository for the host. |
+| Atlassian CLI | Official signed apt or rpm repository for the host. |
+| Node and npm | NodeSource signed apt or rpm repository for the declared major. |
+| Container inspection, terminal recording and media/document utilities | Native distro packages; AlmaLinux also enables EPEL/CRB and RPM Fusion free for FFmpeg. |
 | RTK, actionlint and uv | Upstream release artifacts with archive/binary integrity checks. |
 | AXI CLIs, Playwright, HyperFrames, Context7 and skill utilities | Per-user npm prefix `~/.local`; package names and versions are in the catalog. |
 | Graphify | uv-managed tool with a separate Python environment. |
 | Shared skills, including tstack and Superpowers | Pinned upstream source archives staged for app registration. |
 
 The table describes installation methods, not a second package inventory. The
-catalog's `developer`, `agents` and `skills` groups are the complete inventory.
+catalog's `developer`, `agents` and `skills` groups hold the portable inventory;
+`packages.toml` holds native packages and browser dependencies.
 The unified installer acquires shared prerequisites first, then installs and
 configures the selected tools using internal routines.
 
-Apt trust keys have recorded hashes and repository-specific `Signed-By`
-configuration. Apt versions are tested minimum baselines; newer distribution and
-security packages are accepted. Npm/Python top-level versions are approved, but
+Repository keys have recorded hashes. Apt sources use `Signed-By`; dnf sources
+keep package signature verification enabled and ACLI metadata signature checks.
+Native packages follow repository candidates, including security updates. Managed
+apt installation uses `--no-remove`; dnf never uses `--allowerasing`. Browser
+native dependencies are installed by these same guarded recipes, not by a
+privileged npm package helper. Npm/Python top-level versions are approved, but
 transitive dependencies are package-manager resolved rather than fully locked.
 Use the [tool updater](tool-updates.md) to advance approved versions and hashes.
+
+On Ubuntu, Playwright manages Chromium and its native dependencies. AlmaLinux
+uses its signed distro/EPEL Chromium package. The installer probes that browser
+and records its path for `axi-chrome`. ImageMagick commands can be `magick` or
+`convert`, depending on the distro's package generation. AlmaLinux's FFmpeg
+comes from the signed RPM Fusion free repository so HyperFrames can use
+`libx264` for its default MP4 render. Existing conflicting FFmpeg installations
+are retained with an error rather than automatically erased.
 
 ## Native and npm tools
 

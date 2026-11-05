@@ -1,0 +1,4 @@
+target-version = "py39"
+
+# Preserve unchanged third-party source and its upstream Python compatibility.
+extend-exclude = ["scripts/provision/_vendor"]

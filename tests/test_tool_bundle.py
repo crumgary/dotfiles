@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 SOURCE = Path(__file__).resolve().parents[1]
 CLI = SOURCE / "scripts/install-tools"
+sys.path.insert(0, str(SOURCE / "scripts"))
 
 
 class BundleTests(unittest.TestCase):
@@ -55,7 +56,8 @@ class BundleTests(unittest.TestCase):
                     "librsvg2-bin",
                 },
             )
-            self.assertTrue(plan["tools"]["nodejs"].startswith("26."))
+            self.assertEqual(plan["runtime_major"], 26)
+            self.assertEqual(plan["tools"]["nodejs"], "distribution")
             self.assertEqual(plan["skills"]["tstack"]["repository"], "crumgary/tstack")
             self.assertFalse(home.exists())
 

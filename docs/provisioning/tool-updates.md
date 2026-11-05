@@ -1,7 +1,8 @@
 # Version ownership and updates
 
-`tools.lock.json` records approved tool versions, native artifact hashes and skill
-source revisions. Normal apply uses that catalog. Updates are explicit:
+`tools.lock.json` records approved portable tool versions, native artifact hashes
+and skill source revisions. Host system package recipes live in
+`home/.chezmoidata/packages.toml`. Normal apply uses that catalog. Updates are explicit:
 
 ```console
 dotfiles-update --check
@@ -47,11 +48,10 @@ interpreter patch within their existing Python minor series.
 
 ## Package policy
 
-- Apt entries are tested minimum baselines, not exact package installation pins.
-  Newer distribution/security packages are retained. Apply installs repository
-  candidates by name and never requests an automatic downgrade. Explicit tool
-  update upgrades managed apt packages, while ordinary OS updates remain under
-  apt. NodeSource's repository selects the chosen Node major.
+- System packages follow the selected host's apt/dnf repositories and security
+  updates. They are not exact cross-distro version pins. Explicit tool updates
+  upgrade managed system packages; ordinary OS updates remain under the system
+  manager. NodeSource's host-specific repository selects the chosen Node major.
 - npm and Python top-level packages have approved versions. Their transitive
   dependencies remain package-manager resolved; this is not a byte-identical
   reproducible-build guarantee.
@@ -99,3 +99,14 @@ those flags, the tested catalog remains a normal local Git change for review.
 Credentials, account login, memory databases and observations are never copied
 between machines by this workflow. GitHub authentication improves discovery
 rate limits; a fresh machine otherwise uses the public API allowance.
+
+## Existing catalog migration
+
+The original schema-1 catalog included Ubuntu 26.04 package baselines and apt
+repository definitions. Schema 2 retains portable tool pins; host recipes and
+repository trust are now versioned with the package manifest. An update candidate
+normalizes a legacy catalog without changing its approved app/tool/skill pins.
+The catalog is published only after normal installation verification succeeds.
+Failed/frozen candidates retain their existing recovery behavior. This migration
+can change ownership receipt metadata once; custom configuration and credentials
+are preserved.

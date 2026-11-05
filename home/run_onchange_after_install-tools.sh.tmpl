@@ -5,6 +5,7 @@
 #!/usr/bin/env bash
 # Selected apps: {{ if hasKey . "agent_apps" }}{{ .agent_apps | toJson }}{{ else }}[]{{ end }}
 # Enabled: {{ if hasKey . "install_developer_tools" }}{{ .install_developer_tools }}{{ else }}false{{ end }}
+# system recipes: {{ include ".chezmoidata/packages.toml" | sha256sum }}
 # catalog: {{ include "../config/tools.lock.json" | sha256sum }}
 # entrypoint: {{ include "../scripts/install-tools" | sha256sum }}
 {{ range glob (joinPath .chezmoi.sourceDir "../scripts/provision/*.py") }}

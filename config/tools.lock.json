@@ -1,41 +1,8 @@
 {
-  "schema_version": 1,
-  "platform": "ubuntu-26.04-x86_64",
+  "schema_version": 2,
+  "platform": "linux-x86_64",
   "runtime_major": 26,
   "developer": {
-    "apt": {
-      "gh": "2.103.3",
-      "acli": "1.3.40~stable",
-      "skopeo": "1.21.0~pre1-2build1",
-      "asciinema": "2.4.0-1.1",
-      "nodejs": "26.13.0-1nodesource1",
-      "ffmpeg": "7:8.0.1-3ubuntu2",
-      "imagemagick": "8:7.1.2.18+dfsg1-1",
-      "pandoc": "3.7.0.2+ds-1",
-      "poppler-utils": "26.01.0-2ubuntu0.3",
-      "librsvg2-bin": "2.61.3+dfsg-3ubuntu0.1"
-    },
-    "repositories": {
-      "github-cli": {
-        "key_url": "https://cli.github.com/packages/githubcli-archive-keyring.gpg",
-        "key_sha256": "6084d5d7bd8e288441e0e94fc6275570895da18e6751f70f057485dc2d1a811b",
-        "uri": "https://cli.github.com/packages",
-        "format": "gpg"
-      },
-      "acli": {
-        "key_url": "https://acli.atlassian.com/gpg/public-key.asc",
-        "key_sha256": "807d20626236b4e319de8af42a647674ff281e25dd44001e899180d911b7c5e3",
-        "uri": "https://acli.atlassian.com/linux/deb",
-        "format": "asc"
-      },
-      "nodesource": {
-        "key_url": "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key",
-        "key_sha256": "b42e0321dabdc24e892115da705cf061167eac12a317f23d329862d0aa0a271d",
-        "uri": "https://deb.nodesource.com/node_26.x",
-        "format": "asc",
-        "suite": "nodistro"
-      }
-    },
     "binaries": {
       "rtk": {
         "version": "1.1.0",

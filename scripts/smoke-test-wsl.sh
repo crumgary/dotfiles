@@ -4,9 +4,11 @@ set -euo pipefail
 trap 'echo "FAIL: $BASH_SOURCE:$LINENO" >&2; exit 1' ERR
 
 echo "== Tools present =="
-for t in git curl bash eza batcat fdfind rg zoxide fzf tmux delta starship vim keychain; do
+for t in git curl bash eza rg zoxide fzf tmux delta starship vim keychain; do
     command -v "$t" >/dev/null 2>&1 || { echo "MISSING: $t"; exit 1; }
 done
+command -v bat >/dev/null 2>&1 || command -v batcat >/dev/null 2>&1 || { echo "MISSING: bat or batcat"; exit 1; }
+command -v fd >/dev/null 2>&1 || command -v fdfind >/dev/null 2>&1 || { echo "MISSING: fd or fdfind"; exit 1; }
 echo "  ok"
 
 echo "== ~/.bashrc sources modular files =="

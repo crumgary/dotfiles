@@ -133,7 +133,7 @@ failed candidate; unavailable npm releases are deferred. See [version and update
 
 [Doctor reference](docs/provisioning/doctor.md): declare machine selections in
 a local record or enabled overlay and inspect configuration drift without applying changes.
-Requires Python 3.11+; templates and unaudited checks are reported as unverified.
+Requires Python 3.9+; templates and unaudited checks are reported as unverified.
 
 ```console
 python3 -B scripts/dotfiles-doctor --machine ~/.config/dotfiles/machines/primary-wsl.toml
@@ -147,8 +147,8 @@ MIT.
 
 ## Optional developer tools
 
-The managed tool installer currently supports Ubuntu 26.04 x86_64 only; other
-Ubuntu releases and Red Hat systems need additional target recipes.
+The managed tool installer targets Ubuntu 22.04/24.04/26.04 and AlmaLinux 9
+on x86_64, using native apt/dnf recipes and shared portable tool pins.
 
 Enable `install_developer_tools` to add the [tools and integrations](docs/provisioning/tools.md)
 including shared skills. Select Claude Code, Codex, OpenCode and/or Antigravity

@@ -4,8 +4,8 @@ import hashlib
 import io
 import json
 import os
-import platform
 import re
+import shutil
 import subprocess
 import tarfile
 import tempfile
@@ -84,67 +84,15 @@ def write_system(path, data):
 
 
 def install_apt(lock, upgrade=()):
-    required = []
-    upgrade = set(upgrade)
-    if upgrade - set(lock["apt"]):
-        raise ValueError("Unknown apt upgrade selection")
-    for name, baseline in lock["apt"].items():
-        result = subprocess.run(
-            ["dpkg-query", "-W", "-f=${db:Status-Status}|${Version}", name],
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        installed = result.returncode == 0 and result.stdout.startswith("installed|")
-        actual = result.stdout.partition("|")[2] if installed else None
-        if name == "nodejs" and actual:
-            current = re.match(r"(?:\d+:)?(\d+)\.", actual)
-            major = lock.get("runtime_major", int(baseline.split(".")[0]))
-            if not current or int(current[1]) > major:
-                raise ValueError(
-                    "System Node is outside the chosen LTS major; automatic downgrade is disabled"
-                )
-        # Values are tested baselines. Newer distro/security updates are valid.
-        older = (
-            installed
-            and subprocess.run(
-                ["dpkg", "--compare-versions", actual, "lt", baseline], check=False
-            ).returncode
-            == 0
-        )
-        if not installed or older or name in upgrade:
-            required.append(name)
-    changed = False
-    for name, entry in lock["repositories"].items():
-        key = Path("/etc/apt/keyrings") / f"dotfiles-{name}.{entry['format']}"
-        if (
-            not key.is_file()
-            or hashlib.sha256(key.read_bytes()).hexdigest() != entry["key_sha256"]
-        ):
-            data = download({"url": entry["key_url"], "sha256": entry["key_sha256"]})
-            changed |= write_system(key, data)
-        content = (
-            f"Types: deb\nURIs: {entry['uri']}\nSuites: {entry.get('suite', 'stable')}\nComponents: main\n"
-            f"Architectures: amd64\nSigned-By: {key}\n"
-        ).encode()
-        changed |= write_system(
-            Path("/etc/apt/sources.list.d") / f"dotfiles-{name}.sources", content
-        )
-    if required or changed:
-        run(["sudo", "-n", "apt-get", "update", "-qq"])
-    if required:
-        run(
-            [
-                "sudo",
-                "-n",
-                "env",
-                "DEBIAN_FRONTEND=noninteractive",
-                "apt-get",
-                "install",
-                "-y",
-                *required,
-            ]
-        )
+    """Compatibility adapter for callers using the original apt declaration."""
+    from provision.system_packages import install_system
+
+    recipe = {
+        "manager": "apt",
+        "repositories": lock["repositories"],
+        "packages": {name: {"name": name} for name in lock["apt"]},
+    }
+    return install_system(recipe, lock.get("runtime_major", 26), upgrade)
 
 
 def validate_binary_ownership(home, entries, approved):
@@ -242,7 +190,7 @@ def stage_skills(home, name, entry):
     return str(target)
 
 
-def install_npm(home, packages):
+def install_npm(home, packages, system_browser=False):
     prefix = home / ".local"
     required = []
     for name, version in packages.items():
@@ -281,28 +229,49 @@ def install_npm(home, packages):
         )
     env = {**os.environ, "PATH": str(prefix / "bin") + ":" + os.environ.get("PATH", "")}
     module = str(prefix / "lib/node_modules/playwright")
-    browser = subprocess.check_output(
-        [
-            "node",
-            "-e",
-            "process.stdout.write(require(process.argv[1]).chromium.executablePath())",
-            module,
-        ],
-        text=True,
-        env=env,
-    )
-    if not Path(browser).is_file():
-        run(
-            [str(prefix / "bin/playwright"), "install", "--with-deps", "chromium"],
+    browser = ""
+    if system_browser:
+        browser = shutil.which("chromium-browser") or shutil.which("chromium") or ""
+        if not browser:
+            raise ValueError("The target's Chromium package did not provide a browser")
+    else:
+        browser = subprocess.check_output(
+            [
+                "node",
+                "-e",
+                "process.stdout.write(require(process.argv[1]).chromium.executablePath())",
+                module,
+            ],
+            text=True,
             env=env,
         )
+        if not Path(browser).is_file():
+            run(
+                [str(prefix / "bin/playwright"), "install", "chromium"],
+                env=env,
+            )
+    env["DOTFILES_CHROMIUM_EXECUTABLE"] = browser
+    state = home / ".local/state/dotfiles/browser.json"
+    contents = (
+        json.dumps(
+            {
+                "executable": browser,
+                "source": "system" if system_browser else "playwright",
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    if not state.is_file() or state.read_text() != contents:
+        state.parent.mkdir(parents=True, exist_ok=True)
+        state.write_text(contents)
     if "hyperframes" in packages:
         run([str(prefix / "bin/hyperframes"), "browser", "ensure"], env=env)
     run(
         [
             "node",
             "-e",
-            "const {chromium}=require(process.argv[1]); (async()=>{const browser=await chromium.launch();try{const page=await browser.newPage();await page.setContent('<title>Provisioning smoke</title>');if(await page.title()!=='Provisioning smoke')throw Error('Unexpected title');}finally{await browser.close();}})().catch(error=>{console.error(error.message);process.exit(1)});",
+            "const {chromium}=require(process.argv[1]); (async()=>{const browser=await chromium.launch({executablePath:process.env.DOTFILES_CHROMIUM_EXECUTABLE});try{const page=await browser.newPage();await page.setContent('<title>Provisioning smoke</title>');if(await page.title()!=='Provisioning smoke')throw Error('Unexpected title');}finally{await browser.close();}})().catch(error=>{console.error(error.message);process.exit(1)});",
             module,
         ],
         env=env,
@@ -310,24 +279,25 @@ def install_npm(home, packages):
 
 
 def require_supported_host():
-    release = Path("/etc/os-release").read_text()
-    if (
-        platform.machine() != "x86_64"
-        or 'VERSION_ID="26.04"' not in release
-        or "ID=ubuntu\n" not in release
-    ):
-        raise ValueError("This bundle is verified only on Ubuntu 26.04 x86_64.")
+    from provision.host_platform import detect_host
+
+    return detect_host()
 
 
-def install_bundle(home, catalog, catalog_path, upgrade_apt=()):
+def install_bundle(home, catalog, catalog_path, upgrade_system=()):
     """Install shared tool prerequisites and stage sources for selected adapters."""
     lock = {
         **catalog["developer"],
         "skills": catalog["skills"],
         "runtime_major": catalog["runtime_major"],
     }
+    from provision.host_platform import system_recipe
+    from provision.system_packages import install_system
+
+    host = require_supported_host()
+    recipe = system_recipe(host)
     tools = {
-        **lock["apt"],
+        **{name: "distribution" for name in recipe["packages"]},
         **{name: entry["version"] for name, entry in lock["binaries"].items()},
         **lock["npm"],
     }
@@ -336,10 +306,10 @@ def install_bundle(home, catalog, catalog_path, upgrade_apt=()):
         (Path(__file__).resolve().parents[2] / "config/tools.lock.json").read_text()
     )["developer"]
     validate_binary_ownership(home, lock["binaries"], approved)
-    install_apt(lock, upgrade_apt)
+    system_versions = install_system(recipe, catalog["runtime_major"], upgrade_system)
     for name, entry in lock["binaries"].items():
         install_binary(home, name, entry)
-    install_npm(home, lock["npm"])
+    install_npm(home, lock["npm"], system_browser=recipe["browser"] == "system")
     from provision.python_tools import install_python_tools
 
     install_python_tools(home, lock.get("python", {}))
@@ -352,12 +322,9 @@ def install_bundle(home, catalog, catalog_path, upgrade_apt=()):
         "binary_hashes": {
             name: entry["binary_sha256"] for name, entry in lock["binaries"].items()
         },
-        "apt_installed": {
-            name: subprocess.check_output(
-                ["dpkg-query", "-W", "-f=${Version}", name], text=True
-            )
-            for name in lock["apt"]
-        },
+        "target": host["id"],
+        "package_manager": recipe["manager"],
+        "system_packages": system_versions,
         "skill_sources": sources,
         "activation": "staged only",
     }

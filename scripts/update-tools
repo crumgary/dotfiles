@@ -1,8 +1,15 @@
 #!/usr/bin/env -S python3 -B
 """Update the approved developer tool catalog after installation validation."""
+
 import sys
+
+if sys.version_info < (3, 9):  # noqa: UP036 - guard users invoking an older system Python
+    print("error: Python 3.9 or newer is required.", file=sys.stderr)
+    sys.exit(2)
 from pathlib import Path
+
 sys.dont_write_bytecode = True
-sys.path.insert(0,str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from provision.tool_updates import main
+
 raise SystemExit(main())

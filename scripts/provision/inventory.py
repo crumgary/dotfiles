@@ -2,8 +2,10 @@
 
 import json
 import re
-import tomllib
 from pathlib import Path
+
+from .host_platform import detect_host
+from .toml_compat import tomllib
 
 PROFILES = {"wsl", "devbox", "lab", "embedded"}
 OVERLAYS = {"personal": ".config/dotfiles-priv", "work": ".config/dotfiles-work"}
@@ -57,7 +59,7 @@ def validate(record):
     for field, allowed in [
         ("owner", {"local", "personal", "work"}),
         ("profile", PROFILES),
-        ("os", {"ubuntu"}),
+        ("os", {"ubuntu", "almalinux"}),
         ("architecture", {"x86_64"}),
     ]:
         if not isinstance(record.get(field), str) or record[field] not in allowed:
@@ -134,6 +136,10 @@ def import_current(home, machine_id, owner):
         and type(data["install_developer_tools"]) is not bool
     ):
         raise InputError("Developer-tool selection must be boolean.")
+    try:
+        host = detect_host()
+    except ValueError as error:
+        raise InputError(str(error)) from None
     record = validate(
         {
             "schema_version": 1,
@@ -141,8 +147,8 @@ def import_current(home, machine_id, owner):
             "owner": owner,
             "profile": data.get("profile"),
             "apps": data.get("agent_apps", []),
-            "os": "ubuntu",
-            "architecture": "x86_64",
+            "os": host["os"],
+            "architecture": host["architecture"],
             "work": data["work"],
             "overlays": [
                 name

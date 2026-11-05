@@ -9,7 +9,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 CACHE_SECONDS = 15 * 60
@@ -82,7 +82,9 @@ def _github_error(error, authenticated):
         if headers.get("retry-after", "").isdigit():
             wait = f"Wait at least {headers['retry-after']} seconds before retrying"
         elif headers.get("x-ratelimit-reset", "").isdigit():
-            reset = datetime.fromtimestamp(int(headers["x-ratelimit-reset"]), UTC)
+            reset = datetime.fromtimestamp(
+                int(headers["x-ratelimit-reset"]), timezone.utc
+            )
             wait = "Retry after " + reset.strftime("%Y-%m-%d %H:%M:%S UTC")
         identity = "authenticated" if authenticated else "anonymous"
         login = (

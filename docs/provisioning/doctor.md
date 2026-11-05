@@ -5,7 +5,7 @@ environment. The doctor does not install, apply, update, fetch repositories,
 render templates, or authenticate anything. Installation and tool updates have
 separate commands described in the [setup guide](setup.md).
 
-Requires Python 3.11 or newer and Ubuntu x86_64. The WSL, devbox and lab profiles
+Requires Python 3.9 or newer on the supported Ubuntu/AlmaLinux x86_64 targets. The WSL, devbox and lab profiles
 use the existing shell environment; embedded checks only its minimal commands.
 
 ## Repository ownership
@@ -48,7 +48,8 @@ data. Machine records are not yet an installation input.
 
 See [machine.example.toml](machine.example.toml) for schema version 1. Required
 fields are `schema_version`, `id`, `owner`, `profile`, `os`, `architecture`,
-`overlays` and `bundles`. Optional `apps` lists the selected AI apps and requires
+`overlays` and `bundles`. The OS is `ubuntu` or `almalinux`; the actual release
+selects host package requirements. Optional `apps` lists the selected AI apps and requires
 the developer bundle. Optional `work` defaults to whether the work overlay is
 enabled. Set it explicitly for a work machine without a work overlay. The `coding` bundle corresponds to `install_agent_clis`; `developer` corresponds
 to the optional `install_developer_tools` selection or the prerequisites implied
@@ -95,7 +96,8 @@ write a generic diagnostic to stderr with no partial success document.
   file access attributes, and private Pi runtime mode 0700.
 - Reads baseline/legacy command requirements from the public package declarations
   and managed tool requirements from `config/tools.lock.json`, including selected
-  app commands and Python entry points. Finds commands on PATH without executing
+  app commands and Python entry points. Native package commands come from the
+  detected target's package recipe. Finds commands on PATH without executing
   them. Declared versions are reported as unverified; command presence alone
   does not verify a version, binary hash, plugin registration or service health.
 - Walks source files without following source symlinks. Static `dot_`, `private_`,

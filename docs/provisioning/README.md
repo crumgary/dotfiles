@@ -15,7 +15,8 @@ maintaining the repository; agents can use the same references.
 
 - `config/tools.lock.json` is the approved version/source catalog. Change it
   through the [tool updater](tool-updates.md).
-- `home/.chezmoidata/packages.toml` declares baseline package requirements.
+- `home/.chezmoidata/packages.toml` declares baseline packages and managed
+  host-native package/repository recipes. System packages follow distro versions.
 - Chezmoi data selects the profile, overlays and optional bundles/apps.
 - `scripts/` and chezmoi templates implement installation and configuration.
 - Machine records are currently inputs to the doctor; see

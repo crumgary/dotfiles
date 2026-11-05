@@ -6,11 +6,12 @@ import os
 import subprocess
 import sys
 import tarfile
-import tomllib
 from pathlib import Path
 
 from provision.agent_apps import configure_apps
+from provision.host_platform import detect_host, portable_catalog, system_recipe
 from provision.inventory import validate_app_dependencies
+from provision.toml_compat import tomllib
 from provision.tool_bundle import install_bundle, require_supported_host
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -46,11 +47,15 @@ def configured_selection(home, catalog):
 
 def installation_plan(catalog, names, enabled=True):
     developer = catalog["developer"]
+    host = detect_host()
+    system = system_recipe(host)
     return {
+        "target": host["id"],
+        "system": system if enabled else {},
         "enabled": enabled,
         "runtime_major": catalog["runtime_major"],
         "tools": {
-            **developer["apt"],
+            **{name: "distribution" for name in system["packages"]},
             **{name: entry["version"] for name, entry in developer["binaries"].items()},
             **developer["npm"],
         }
@@ -62,7 +67,7 @@ def installation_plan(catalog, names, enabled=True):
     }
 
 
-def install_tools(home, catalog, catalog_path, names, upgrade_apt=()):
+def install_tools(home, catalog, catalog_path, names, upgrade_system=()):
     validate_selection(catalog, names)
     if home.resolve() != Path.home().resolve():
         raise ValueError(
@@ -70,7 +75,7 @@ def install_tools(home, catalog, catalog_path, names, upgrade_apt=()):
         )
     require_supported_host()
     os.environ["PATH"] = str(home / ".local/bin") + ":" + os.environ.get("PATH", "")
-    receipt = install_bundle(home, catalog, catalog_path, upgrade_apt)
+    receipt = install_bundle(home, catalog, catalog_path, upgrade_system)
     integrations = {}
     if names:
         sources = {name: Path(path) for name, path in receipt["skill_sources"].items()}
@@ -93,13 +98,15 @@ def main():
     parser.add_argument("--home", type=Path, default=Path.home())
     parser.add_argument("--catalog", type=Path, default=ROOT / "config/tools.lock.json")
     parser.add_argument(
+        "--upgrade-system",
         "--upgrade-apt",
+        dest="upgrade_system",
         default="",
-        help="explicit comma-separated managed apt packages to upgrade",
+        help="explicit comma-separated managed system packages to upgrade",
     )
     args = parser.parse_args()
     try:
-        catalog = json.loads(args.catalog.read_text())
+        catalog = portable_catalog(json.loads(args.catalog.read_text()))
         if args.from_chezmoi:
             enabled, names = configured_selection(args.home, catalog)
         else:
@@ -109,9 +116,9 @@ def main():
             except ValueError as error:
                 parser.error(str(error))
             enabled = True
-        upgrades = [name for name in args.upgrade_apt.split(",") if name]
-        if set(upgrades) - set(catalog["developer"]["apt"]):
-            raise ValueError("Only declared apt packages may be upgraded")
+        upgrades = [name for name in args.upgrade_system.split(",") if name]
+        if upgrades and set(upgrades) - set(system_recipe()["packages"]):
+            raise ValueError("Only declared system packages may be upgraded")
         if args.dry_run:
             report = installation_plan(catalog, names, enabled)
         elif not enabled:

@@ -2,6 +2,10 @@
 """Install selected development tools and their integrations."""
 
 import sys
+
+if sys.version_info < (3, 9):  # noqa: UP036 - guard users invoking an older system Python
+    print("error: Python 3.9 or newer is required.", file=sys.stderr)
+    sys.exit(2)
 from pathlib import Path
 
 sys.dont_write_bytecode = True

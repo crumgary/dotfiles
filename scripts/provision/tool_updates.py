@@ -11,6 +11,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
+from provision.host_platform import portable_catalog, system_recipe
 from provision.install_tools import configured_selection
 from provision.npm_releases import UnavailableNpmRelease, validate_npm_updates
 from provision.tool_bundle import require_supported_host
@@ -53,13 +54,14 @@ def install_candidate(candidate, catalog_path, home, source, only):
             str(error)
             + "; retry later, or use --apply --refresh to resolve a new candidate and defer unavailable releases"
         ) from error
-    apt = (
-        set(candidate["developer"]["apt"])
-        if not only
-        else set(only) & set(candidate["developer"]["apt"])
-    )
+    try:
+        system = set(system_recipe(source=source)["packages"])
+    except (OSError, KeyError):
+        # Older checkout fixtures and frozen pre-consolidation candidates.
+        system = set(candidate["developer"].get("apt", {}))
+    upgrades = system if not only else set(only) & system
     if only and "node" in only:
-        apt.add("nodejs")
+        upgrades.add("nodejs")
     command = [
         sys.executable,
         "-B",
@@ -69,8 +71,8 @@ def install_candidate(candidate, catalog_path, home, source, only):
         "--catalog",
         str(catalog_path),
     ]
-    if apt:
-        command += ["--upgrade-apt", ",".join(sorted(apt))]
+    if upgrades:
+        command += ["--upgrade-system", ",".join(sorted(upgrades))]
     subprocess.run(command, check=True)
     return {
         "validation": "unified tool installer, local browser probe, selected app versions, skill integrity and local worker health passed"
@@ -119,6 +121,16 @@ def apply_update(
                 raise ValueError(
                     "Catalog changed since the pending update; reconcile it before retrying"
                 )
+            if not refresh:
+                migrated = portable_catalog(candidate)
+                if migrated != candidate:
+                    atomic_write(
+                        state / record["run"] / "legacy-candidate.json", encoded(record)
+                    )
+                    candidate = migrated
+                    record["candidate"] = migrated
+                    record["base_sha256"] = digest(before)
+                    atomic_write(pending, encoded(record))
         if not pending.exists() or refresh:
             deferred = []
             candidate = (
@@ -240,7 +252,7 @@ def main():
                         "mode": "check",
                         "deferred": deferred,
                         "changes": changes(before, candidate),
-                        "apt": "repository candidates; upgrades are installed only with --apply",
+                        "system_packages": "host repository candidates; upgrades are installed only with --apply",
                         "node_major": candidate["runtime_major"],
                     },
                     indent=2,

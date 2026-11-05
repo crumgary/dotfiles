@@ -349,3 +349,244 @@ class UnifiedCompatibilityTests(unittest.TestCase):
             result = self.render_init(Path(temporary), data)
             self.assertEqual(result["agent_apps"], ["codex"])
             self.assertEqual(result["agent_apps_csv"], "codex")
+
+
+@unittest.skipUnless(
+    CHEZMOI and shutil.which("bwrap"),
+    "chezmoi and bubblewrap are required for installer integration tests",
+)
+class BaselineDnfTests(unittest.TestCase):
+    def run_baseline(
+        self, distro="almalinux", version="9.7", privileged=True, minimal_curl=False
+    ):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        bindir = root / "bin"
+        bindir.mkdir()
+        home = root / "home"
+        home.mkdir()
+        log = root / "commands"
+        if minimal_curl:
+            (root / "pkg-curl-minimal").touch()
+        # Only fixture commands are on PATH, so the host apt cannot win detection.
+        for name in ("mkdir", "uname", "grep", "touch", "awk"):
+            (bindir / name).symlink_to(shutil.which(name))
+        commands = {
+            "id": "#!/bin/sh\necho " + ("0" if privileged else "1000") + "\n",
+            "rpm": '#!/bin/sh\n[ "$1" = -q ] || exit 90\n'
+            'case "$2" in @*) exit 1;; esac\n'
+            'test -f "$FIXTURE_ROOT/pkg-$2"\n',
+            "dnf": """#!/bin/sh
+printf '%s\n' "$*" >> "$FIXTURE_ROOT/commands"
+case "$*" in
+    *"group list"*)
+        case "$*" in *--installed*--ids*|*--hidden*--ids*) exit 94;; esac
+        group=""
+        for argument do group="$argument"; done
+        if test -f "$FIXTURE_ROOT/pkg-@$group"; then
+            printf 'Installed Groups:\n   Development Tools (%s)\n' "$group"
+        else
+            printf 'Available Groups:\n   Development Tools (%s)\n' "$group"
+        fi
+        exit 0;;
+    "config-manager --set-enabled crb") touch "$FIXTURE_ROOT/crb"; exit 0;;
+    "install -y "*)
+        shift 2
+        for p do
+            if [ "$FIXTURE_DISTRO" = almalinux ] && [ "$p" = @development-tools ]; then exit 95; fi
+            if [ "$p" = curl ] && test -f "$FIXTURE_ROOT/pkg-curl-minimal"; then exit 96; fi
+            case "$p" in
+                gh|ShellCheck)
+                    if [ "$FIXTURE_DISTRO" = almalinux ]; then
+                        test -f "$FIXTURE_ROOT/pkg-epel-release" || exit 91
+                        test -f "$FIXTURE_ROOT/crb" || exit 92
+                    fi;;
+            esac
+            touch "$FIXTURE_ROOT/pkg-$p"
+        done
+        exit 0;;
+esac
+exit 93
+""",
+            "curl": "#!/bin/sh\nexit 88\n",
+        }
+        for name in (
+            "eza",
+            "delta",
+            "fd",
+            "bat",
+            "zoxide",
+            "fzf",
+            "keychain",
+            "glow",
+            "starship",
+        ):
+            commands[name] = "#!/bin/sh\nexit 0\n"
+        for name, content in commands.items():
+            path = bindir / name
+            path.write_text(content)
+            path.chmod(0o755)
+        config = root / "config.toml"
+        config.write_text(CONFIG)
+        rendered = subprocess.run(
+            [
+                CHEZMOI,
+                "--source",
+                str(SOURCE),
+                "--config",
+                str(config),
+                "--cache",
+                str(root / "cache"),
+                "--persistent-state",
+                str(root / "state"),
+                "execute-template",
+            ],
+            input=(
+                SOURCE / "home/run_onchange_before_install-packages.sh.tmpl"
+            ).read_text(),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(rendered.returncode, 0, rendered.stderr)
+        os_release = root / "os-release"
+        os_release.write_text("ID=" + distro + '\nVERSION_ID="' + version + '"\n')
+        command = [
+            shutil.which("bwrap"),
+            "--ro-bind",
+            "/",
+            "/",
+            "--bind",
+            str(root),
+            str(root),
+            "--ro-bind",
+            str(os_release),
+            "/etc/os-release",
+            "--dev-bind",
+            "/dev/null",
+            "/dev/null",
+            "--unshare-net",
+            "--",
+            "/bin/bash",
+            "-s",
+        ]
+        results = []
+        mutations = []
+        for _ in range(2):
+            results.append(
+                subprocess.run(
+                    command,
+                    input=rendered.stdout,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                    env={
+                        **os.environ,
+                        "HOME": str(home),
+                        "PATH": str(bindir),
+                        "FIXTURE_ROOT": str(root),
+                        "FIXTURE_DISTRO": distro,
+                    },
+                )
+            )
+            mutations.append(
+                [
+                    line
+                    for line in (log.read_text().splitlines() if log.exists() else [])
+                    if "group list" not in line
+                ]
+            )
+        return root, results, mutations
+
+    def test_fresh_alma_9_enables_epel_and_crb_before_baseline_packages(self):
+        root, results, mutations = self.run_baseline()
+        for result in results:
+            self.assertEqual(result.returncode, 0, result.stderr)
+        for package in ("gh", "ShellCheck", "dnf-plugins-core", "epel-release"):
+            self.assertTrue((root / ("pkg-" + package)).exists(), package)
+        self.assertEqual(
+            mutations[0], mutations[1], "second apply changed system packages"
+        )
+
+    def test_fedora_baseline_group_does_not_trigger_repeated_installs(self):
+        root, results, mutations = self.run_baseline("fedora", "43")
+        for result in results:
+            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((root / "pkg-epel-release").exists())
+        self.assertEqual(
+            mutations[0], mutations[1], "installed group was queried as an RPM"
+        )
+
+    def test_alma_retains_existing_minimal_curl_provider(self):
+        root, results, mutations = self.run_baseline(minimal_curl=True)
+        for result in results:
+            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((root / "pkg-curl-minimal").exists())
+        self.assertFalse((root / "pkg-curl").exists())
+        self.assertEqual(mutations[0], mutations[1])
+
+    def test_alma_without_sudo_skips_all_system_mutations(self):
+        root, results, mutations = self.run_baseline(privileged=False)
+        for result in results:
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("no sudo", result.stderr)
+        self.assertEqual(mutations, [[], []])
+        self.assertFalse((root / "pkg-epel-release").exists())
+
+
+class WslSmokeAliasTests(unittest.TestCase):
+    def test_smoke_accepts_upstream_and_debian_tool_names(self):
+        for aliases in (("bat", "fd"), ("batcat", "fdfind"), ("bat",), ("fd",)):
+            with (
+                self.subTest(aliases=aliases),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                root = Path(temporary)
+                bindir = root / "bin"
+                bindir.mkdir()
+                for name in ("bash", "grep"):
+                    (bindir / name).symlink_to(shutil.which(name))
+                for name in (
+                    "git",
+                    "curl",
+                    "eza",
+                    "rg",
+                    "zoxide",
+                    "fzf",
+                    "tmux",
+                    "delta",
+                    "starship",
+                    "vim",
+                    "keychain",
+                    "fc-list",
+                ) + aliases:
+                    path = bindir / name
+                    output = "delta" if name == "git" else "JetBrainsMono Nerd Font"
+                    path.write_text("#!/bin/sh\nprintf '%s\\n' '" + output + "'\n")
+                    path.chmod(0o755)
+                for relative in (
+                    ".bashrc",
+                    ".vimrc",
+                    ".tmux.conf",
+                    ".config/starship.toml",
+                    ".local/share/blesh/ble.sh",
+                ):
+                    path = root / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text("# source ~/.config/bash/00-env.sh\n")
+                result = subprocess.run(
+                    ["/bin/bash", str(SOURCE / "scripts/smoke-test-wsl.sh")],
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                    env={**os.environ, "HOME": str(root), "PATH": str(bindir)},
+                )
+                if len(aliases) == 2:
+                    self.assertEqual(
+                        result.returncode, 0, result.stdout + result.stderr
+                    )
+                    self.assertIn("ALL SMOKE TESTS PASSED", result.stdout)
+                else:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn("MISSING:", result.stdout)

@@ -75,15 +75,22 @@ def main():
                     "Debug port belongs to another browser; select AXI_CHROME_PORT"
                 )
             module = home / ".local/lib/node_modules/playwright"
-            browser = subprocess.check_output(
-                [
-                    "node",
-                    "-e",
-                    "process.stdout.write(require(process.argv[1]).chromium.executablePath())",
-                    str(module),
-                ],
-                text=True,
+            receipt = home / ".local/state/dotfiles/browser.json"
+            browser = (
+                json.loads(receipt.read_text())["executable"]
+                if receipt.is_file()
+                else ""
             )
+            if not browser or not Path(browser).is_file():
+                browser = subprocess.check_output(
+                    [
+                        "node",
+                        "-e",
+                        "process.stdout.write(require(process.argv[1]).chromium.executablePath())",
+                        str(module),
+                    ],
+                    text=True,
+                )
             with (state / f"{port}.log").open("ab") as log:
                 process = subprocess.Popen(
                     [

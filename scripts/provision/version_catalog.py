@@ -7,6 +7,7 @@ import json
 import re
 import urllib.parse
 
+from provision.host_platform import package_ids, portable_catalog
 from provision.npm_releases import UnavailableNpmRelease, check_npm_release
 from provision.upstream_http import fetch_bytes
 from provision.version_artifacts import resolve_artifacts
@@ -52,7 +53,7 @@ def refreshed_source(entry, revision, get_bytes):
 def known_names(catalog):
     dev = catalog["developer"]
     return (
-        set(dev["apt"])
+        package_ids()
         | set(dev["npm"])
         | set(dev["binaries"])
         | set(dev.get("python", {}))
@@ -87,7 +88,7 @@ def resolve_catalog(
     def wanted(name):
         return selected is None or name in selected
 
-    candidate = copy.deepcopy(catalog)
+    candidate = portable_catalog(catalog)
     npm_checker = npm_checker or check_npm_release
     deferred = deferred if deferred is not None else []
 
