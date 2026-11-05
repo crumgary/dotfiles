@@ -1,4 +1,4 @@
-" ~/.vimrc.minimal — used on embedded targets and when nvim is absent.
+" ~/.vimrc - shared Vim configuration for all profiles.
 
 set nocompatible
 syntax on

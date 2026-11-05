@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "platform": "ubuntu-26.04-x86_64",
+  "runtime_major": 26,
+  "developer": {
+    "apt": {
+      "gh": "2.103.3",
+      "acli": "1.3.40~stable",
+      "skopeo": "1.21.0~pre1-2build1",
+      "asciinema": "2.4.0-1.1",
+      "nodejs": "26.13.0-1nodesource1",
+      "ffmpeg": "7:8.0.1-3ubuntu2",
+      "imagemagick": "8:7.1.2.18+dfsg1-1",
+      "pandoc": "3.7.0.2+ds-1",
+      "poppler-utils": "26.01.0-2ubuntu0.3",
+      "librsvg2-bin": "2.61.3+dfsg-3ubuntu0.1"
+    },
+    "repositories": {
+      "github-cli": {
+        "key_url": "https://cli.github.com/packages/githubcli-archive-keyring.gpg",
+        "key_sha256": "6084d5d7bd8e288441e0e94fc6275570895da18e6751f70f057485dc2d1a811b",
+        "uri": "https://cli.github.com/packages",
+        "format": "gpg"
+      },
+      "acli": {
+        "key_url": "https://acli.atlassian.com/gpg/public-key.asc",
+        "key_sha256": "807d20626236b4e319de8af42a647674ff281e25dd44001e899180d911b7c5e3",
+        "uri": "https://acli.atlassian.com/linux/deb",
+        "format": "asc"
+      },
+      "nodesource": {
+        "key_url": "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key",
+        "key_sha256": "b42e0321dabdc24e892115da705cf061167eac12a317f23d329862d0aa0a271d",
+        "uri": "https://deb.nodesource.com/node_26.x",
+        "format": "asc",
+        "suite": "nodistro"
+      }
+    },
+    "binaries": {
+      "rtk": {
+        "version": "1.1.0",
+        "url": "https://github.com/rtk-ai/rtk/releases/download/v1.1.0/rtk-x86_64-unknown-linux-musl.tar.gz",
+        "sha256": "9454ad1b9489daa57ab0a9f4ebe2faaf4dc82b8a0f26c9e5135151abd7c9378d",
+        "member": "rtk",
+        "binary_sha256": "f4d2f533d4e82e797cad3fbcd8d4a4f85351c4871d49a6202f5bc7a3e8c5c568"
+      },
+      "actionlint": {
+        "version": "1.7.12",
+        "url": "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz",
+        "sha256": "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8",
+        "member": "actionlint",
+        "binary_sha256": "c872d6db8c6bf83a8eaa704fc93999f027d55dffbc63b8a6abdccb47df5f4cd4"
+      },
+      "uv": {
+        "version": "0.13.7",
+        "url": "https://github.com/astral-sh/uv/releases/download/0.13.7/uv-x86_64-unknown-linux-gnu.tar.gz",
+        "sha256": "c5221ff41b7892bfc223543883600125f6a47fe845093e0f5bdff4f359196d83",
+        "member": "uv-x86_64-unknown-linux-gnu/uv",
+        "binary_sha256": "4b5e59bc557ff2cd70934beb59d0eaa92820702853d49f0066b50aa11a8f0c52"
+      }
+    },
+    "npm": {
+      "gh-axi": "0.1.48",
+      "playwright": "1.64.1",
+      "ctx7": "0.9.0",
+      "skills": "1.7.6",
+      "hyperframes": "0.9.14",
+      "chrome-devtools-axi": "0.1.46",
+      "jira-axi": "1.0.4",
+      "confluence-axi": "1.0.4"
+    },
+    "python": {
+      "graphifyy": {
+        "version": "0.9.102",
+        "python": "3.13.18",
+        "extras": [
+          "mcp",
+          "pdf",
+          "office",
+          "watch",
+          "svg",
+          "leiden"
+        ],
+        "commands": [
+          "graphify",
+          "graphify-mcp"
+        ]
+      }
+    }
+  },
+  "agents": {
+    "claude": {
+      "command": "claude",
+      "version": "2.1.318",
+      "kind": "claude-native",
+      "artifact": {
+        "version": "2.1.318",
+        "format": "raw",
+        "url": "https://downloads.claude.ai/claude-code-releases/2.1.318/linux-x64/claude",
+        "sha256": "708c77b204db30086ff6f1ed34577bda03e1be74ced80557cbf7b54249ebf0bd",
+        "binary_sha256": "708c77b204db30086ff6f1ed34577bda03e1be74ced80557cbf7b54249ebf0bd"
+      }
+    },
+    "codex": {
+      "command": "codex",
+      "version": "0.166.0",
+      "kind": "npm",
+      "package": "@openai/codex"
+    },
+    "opencode": {
+      "command": "opencode",
+      "version": "1.19.5",
+      "kind": "npm",
+      "package": "opencode-ai",
+      "allow_install_scripts": true
+    },
+    "antigravity": {
+      "command": "agy",
+      "version": "1.5.0",
+      "kind": "native",
+      "artifact": {
+        "version": "1.5.0",
+        "url": "https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.0-5269980577660928/linux-x64/cli_linux_x64.tar.gz",
+        "sha256": "f65e365a67be49abdaf92f5669c3157bd4b9c569f6b9f448340b00ca261b0f01",
+        "member": "antigravity",
+        "binary_sha256": "b9043860a06a3bfa70b68f06c3d4527abc16207767f14ae9d1e06e3026081862"
+      }
+    }
+  },
+  "skills": {
+    "tstack": {
+      "repository": "crumgary/tstack",
+      "revision": "1085050f3baed1ac724caa4a8166145fb2ac88af",
+      "url": "https://codeload.github.com/crumgary/tstack/tar.gz/1085050f3baed1ac724caa4a8166145fb2ac88af",
+      "sha256": "9ef4b8abe9a8595f2309fdb096e4c41569b26920bcf6e91fba07854a9092cf1c"
+    },
+    "superpowers": {
+      "repository": "obra/superpowers",
+      "revision": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "url": "https://codeload.github.com/obra/superpowers/tar.gz/22f0b463e7a5e579904dd6211a520321035526f7",
+      "sha256": "5f15e6bfa1b628ebabc84f88508b9652f5c7b8cb4529731e266006ba8f798976"
+    },
+    "find-skills": {
+      "repository": "vercel-labs/skills",
+      "revision": "e80e8255bb89ce3288edc34d6cead20cbb7cc521",
+      "url": "https://codeload.github.com/vercel-labs/skills/tar.gz/e80e8255bb89ce3288edc34d6cead20cbb7cc521",
+      "sha256": "f2049101862e8e35f200250975d7bdc86a42ea95f83f6b082cf85d18fe6fd191",
+      "paths": {
+        "find-skills": "skills/find-skills"
+      }
+    },
+    "task-observer": {
+      "repository": "rebelytics/one-skill-to-rule-them-all",
+      "revision": "f86755764373f96a50401762f31f22077127b999",
+      "url": "https://codeload.github.com/rebelytics/one-skill-to-rule-them-all/tar.gz/f86755764373f96a50401762f31f22077127b999",
+      "sha256": "a4c878766e41e6efb3e274a90e5d5ccada5993bf7706b8415d8bf1cae496bbb5",
+      "paths": {
+        "task-observer": "."
+      }
+    },
+    "hyperframes": {
+      "repository": "heygen-com/hyperframes",
+      "revision": "6e8454d6d529fcaee42970b37c5f08f7369a0a38",
+      "url": "https://codeload.github.com/heygen-com/hyperframes/tar.gz/6e8454d6d529fcaee42970b37c5f08f7369a0a38",
+      "sha256": "2e1a3b21620e671156d6755dcec3f5419d906e0a1ebf7bc1a5ddd30fd8931880",
+      "paths": {
+        "hyperframes": "skills/hyperframes",
+        "hyperframes-cli": "skills/hyperframes-cli",
+        "hyperframes-registry": "skills/hyperframes-registry",
+        "media-use": "skills/media-use"
+      },
+      "exclude": [
+        "packages/cli/src/audio/scripts",
+        "packages/producer/tests/render-symlinked-assets/src/shared"
+      ]
+    },
+    "atlassian-axi": {
+      "repository": "emilchristensen/atlassian-axi",
+      "revision": "bfbbb668b8bc08440bf613a0db4217a8f8ff917f",
+      "url": "https://codeload.github.com/emilchristensen/atlassian-axi/tar.gz/bfbbb668b8bc08440bf613a0db4217a8f8ff917f",
+      "sha256": "3c34e5cdd74ee274efb104df49b287deaf77588684b1d7f50c31786ded27745b",
+      "paths": {
+        "jira-axi": "packages/jira-axi/skills/jira-axi",
+        "confluence-axi": "packages/confluence-axi/skills/confluence-axi"
+      },
+      "exclude": [
+        "CLAUDE.md"
+      ]
+    },
+    "drawio": {
+      "repository": "jgraph/drawio-mcp",
+      "revision": "2a0f570328624eb9d7182a7389bfd9a25e223afe",
+      "url": "https://codeload.github.com/jgraph/drawio-mcp/tar.gz/2a0f570328624eb9d7182a7389bfd9a25e223afe",
+      "sha256": "8a46d60b784984f357c297c403270988562cdcab701649f8b4fda7cdbf4c8255",
+      "paths": {
+        "drawio": "plugins/claude-code/skills/drawio"
+      }
+    },
+    "context7": {
+      "repository": "upstash/context7",
+      "revision": "1496b428efb35acb7bd6a1da98e50fd1d3dccdcc",
+      "url": "https://codeload.github.com/upstash/context7/tar.gz/1496b428efb35acb7bd6a1da98e50fd1d3dccdcc",
+      "sha256": "6657dabd1114b58d537c5a3ce6d3d403256ee9d0df5d921d2ff5b9ca1e49ec6c",
+      "paths": {
+        "find-docs": "skills/find-docs"
+      }
+    },
+    "graphify": {
+      "repository": "safishamsi/graphify",
+      "revision": "59b5ab1151e031fb42e39cfc9a50bf96f2d57ae0",
+      "url": "https://codeload.github.com/safishamsi/graphify/tar.gz/59b5ab1151e031fb42e39cfc9a50bf96f2d57ae0",
+      "sha256": "7412a5d805bc95c0856aeeb531fc3c641fa70923e919b9bf54f60a7e67f9138d",
+      "paths": {}
+    },
+    "ms-rust": {
+      "repository": "lx-industries/ms-rust-skill",
+      "revision": "31a73a2185578adc602ea26e66c9982e8340656e",
+      "url": "https://gitlab.com/lx-industries/ms-rust-skill/-/archive/31a73a2185578adc602ea26e66c9982e8340656e/ms-rust-skill-31a73a2185578adc602ea26e66c9982e8340656e.tar.gz",
+      "sha256": "0afbe84b6b593209e72cf6a67864efaff6139a21ff624c9531166fb90949606f",
+      "paths": {
+        "ms-rust": "."
+      }
+    },
+    "claude-mem": {
+      "repository": "thedotmack/claude-mem",
+      "revision": "d0968e5d136abc34dcfe1b78acf3726fa84978d8",
+      "version": "15.9.0",
+      "url": "https://registry.npmjs.org/claude-mem/-/claude-mem-15.9.0.tgz",
+      "sha256": "9d4a2fd7e19077452a803d6e6b0e3f07d6983a241b96758b6d43648806bff531",
+      "bun": {
+        "version": "1.4.4",
+        "url": "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-linux-x64-baseline.zip",
+        "sha256": "e0446eb55995772eb9894bebae9a6be368d985a8b9271ee124486f9946eedd76",
+        "member": "bun-linux-x64-baseline/bun",
+        "binary_sha256": "10702245766b225e70bbf6235fd6b47214fd94b4760d00ffaed8ab0df57ac235"
+      }
+    }
+  }
+}

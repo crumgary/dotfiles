@@ -6,7 +6,6 @@
 .gemini
 .pi
 .config/agents
-.config/nvim
 .config/bash/15-modern.sh
 .config/bash/20-tools.sh
 .config/bash/30-fzf.sh
@@ -35,3 +34,7 @@ README.md
 bootstrap.sh
 docs
 scripts
+
+{{ if not (and (hasKey . "install_developer_tools") .install_developer_tools) }}
+.local/bin/axi-chrome
+{{ end }}

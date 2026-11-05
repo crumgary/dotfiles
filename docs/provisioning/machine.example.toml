@@ -1,0 +1,19 @@
+# Public example only. Keep actual records in an enabled overlay's machines/
+# directory, or at an explicitly selected local path for a public-only setup.
+schema_version = 1
+id = "example-wsl"
+owner = "local"
+profile = "wsl"
+os = "ubuntu"
+architecture = "x86_64"
+work = false
+overlays = []
+bundles = []
+apps = []
+# Apps require bundles = ["developer"] and matching chezmoi agent_apps data.
+
+# Optional immutable checkout revisions. Only public and enabled overlays may
+# appear here; values must be full 40- or 64-character lowercase Git commit IDs.
+# Omitted revisions are reported as unverified, never implicitly pinned.
+# [revisions]
+# public = "0000000000000000000000000000000000000000"

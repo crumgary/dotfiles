@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""Run a local debugging browser using the declared Playwright Chromium."""
+
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+import signal
+import subprocess
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("command", choices=["start", "status", "stop"])
+    args = parser.parse_args()
+    distro = os.environ.get("WSL_DISTRO_NAME")
+    default_port = (
+        52000 + int(hashlib.sha256(distro.encode()).hexdigest()[:6], 16) % 9000
+        if distro
+        else 9222
+    )
+    port = int(os.environ.get("AXI_CHROME_PORT", str(default_port)))
+    if not 1 <= port <= 65535:
+        parser.error("AXI_CHROME_PORT must be between 1 and 65535")
+    home = Path.home()
+    state = home / ".local/state/chrome-devtools-axi"
+    profile = home / ".local/share/chrome-devtools-axi/profile"
+    state.mkdir(parents=True, exist_ok=True, mode=0o700)
+    profile.mkdir(parents=True, exist_ok=True, mode=0o700)
+    pidfile = state / f"{port}.pid"
+    url = f"http://127.0.0.1:{port}"
+
+    def owned_pid():
+        try:
+            pid = int(pidfile.read_text())
+            cmdline = (
+                b" "
+                + Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ")
+                + b" "
+            )
+            if (
+                f" --user-data-dir={profile} ".encode() in cmdline
+                and f" --remote-debugging-port={port} ".encode() in cmdline
+            ):
+                return pid
+        except (OSError, ValueError):
+            pass
+        return None
+
+    def ready():
+        try:
+            with urllib.request.urlopen(url + "/json/version", timeout=1) as response:
+                return bool(json.load(response).get("webSocketDebuggerUrl"))
+        except (OSError, ValueError, urllib.error.URLError):
+            return False
+
+    with (state / f"{port}.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        pid = owned_pid()
+        if args.command == "stop":
+            if pid:
+                os.kill(pid, signal.SIGTERM)
+            pidfile.unlink(missing_ok=True)
+            return 0
+        if not pid or not ready():
+            if args.command == "status":
+                return 1
+            if ready():
+                parser.error(
+                    "Debug port belongs to another browser; select AXI_CHROME_PORT"
+                )
+            module = home / ".local/lib/node_modules/playwright"
+            browser = subprocess.check_output(
+                [
+                    "node",
+                    "-e",
+                    "process.stdout.write(require(process.argv[1]).chromium.executablePath())",
+                    str(module),
+                ],
+                text=True,
+            )
+            with (state / f"{port}.log").open("ab") as log:
+                process = subprocess.Popen(
+                    [
+                        browser,
+                        "--headless=new",
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--remote-debugging-address=127.0.0.1",
+                        f"--remote-debugging-port={port}",
+                        f"--user-data-dir={profile}",
+                        "--no-first-run",
+                        "--no-default-browser-check",
+                        "about:blank",
+                    ],
+                    stdin=subprocess.DEVNULL,
+                    stdout=log,
+                    stderr=log,
+                    start_new_session=True,
+                )
+            pidfile.write_text(str(process.pid))
+            for _ in range(40):
+                if ready():
+                    break
+                if process.poll() is not None:
+                    parser.error("Browser exited; see " + str(state / f"{port}.log"))
+                time.sleep(0.25)
+            else:
+                parser.error(
+                    "Browser startup timed out; see " + str(state / f"{port}.log")
+                )
+        print(f'export CHROME_DEVTOOLS_AXI_BROWSER_URL="{url}"')
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -14,9 +14,9 @@ Change a per-machine answer: `chezmoi edit-config && chezmoi apply`
 
 | Profile | Where | What's enabled |
 |---|---|---|
-| `wsl` | This WSL2 box and similar | Full shell + LazyVim + LSPs + tmux plugins + WSL bits |
+| `wsl` | This WSL2 box and similar | Full shell + Vim + tmux plugins + WSL bits |
 | `devbox` | Powerful remote dev/build servers | Same as wsl minus WSL-specific bits |
-| `lab` | Thinner SSH targets | Lighter LazyVim (no LSPs/DAP), modern CLI swaps still on |
+| `lab` | Thinner SSH targets | Vim and modern CLI tools |
 | `embedded` | busybox / minimal | Minimal `.bashrc` + `.vimrc.minimal` only |
 
 ## Shell
@@ -67,26 +67,21 @@ Change a per-machine answer: `chezmoi edit-config && chezmoi apply`
 | `prefix Ctrl-s` / `prefix Ctrl-r` | save / restore session |
 | `prefix [` then `v` then `y` | enter copy-mode, select, yank |
 
-## Neovim (LazyVim, leader = `<Space>`)
+## Vim
 
-Press `<Space>` and wait — which-key shows the menu.
+Vim uses `~/.vimrc` with syntax highlighting, line numbers, smart-case search,
+four-space indentation and persistent undo. `EDITOR` and `VISUAL` select `vim`
+when available, falling back to `vi` on minimal targets.
 
-| Sequence | Effect |
+| Command | Effect |
 |---|---|
-| `<Space>ff` | Find files (project) |
-| `<Space>fg` | Live grep |
-| `<Space>fb` | Buffers |
-| `<Space>fr` | Resume last picker |
-| `<Space>e`  | File explorer (oil/neo-tree) |
-| `<Space>gs` | Stage hunk (gitsigns) |
-| `<Space>gb` | Blame line |
-| `<Space>ca` | Code action (LSP) |
-| `<Space>cr` | Rename (LSP) |
-| `gd`        | Go to definition (LSP) |
-| `K`         | Hover (LSP) |
-| `<C-h/j/k/l>` | Window navigation (and across tmux panes) |
-
-Enable AI in nvim later: `chezmoi edit-config`, flip `enable_ai_assistant = true`, `chezmoi apply`, restart nvim.
+| `:e path` | Open a file |
+| `:split path` / `:vsplit path` | Split horizontally / vertically |
+| `Ctrl-w h/j/k/l` | Move between windows |
+| `:ls` / `:b number` | List / switch buffers |
+| `/pattern` then `n` / `N` | Search forward, next / previous match |
+| `Esc Esc` | Clear search highlighting |
+| `:w` / `:q` / `:wq` | Save / quit / save and quit |
 
 ## Troubleshooting
 
@@ -95,4 +90,3 @@ Enable AI in nvim later: `chezmoi edit-config`, flip `enable_ai_assistant = true
 - **`chezmoi diff` shows expected files as new:** you probably edited `$HOME` directly. `chezmoi add ~/file` to sync, or `chezmoi apply --force` to overwrite.
 - **SELinux denial on RHEL/Alma:** unlikely to affect dotfile content; check `ausearch -m AVC -ts recent`.
 - **`fd: command not found` on Ubuntu:** binary is `fdfind`; an alias in `15-modern.sh` maps `fd → fdfind`.
-- **nvim 0.6 keeps getting used on Ubuntu 22.04:** the release-binary installer puts current nvim at `~/.local/bin/nvim`. Confirm `~/.local/bin` is first in `$PATH`.

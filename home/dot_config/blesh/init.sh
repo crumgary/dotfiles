@@ -10,5 +10,9 @@ bleopt complete_auto_complete=
 # Make Tab behave like plain readline instead of ble.sh's cycling menu-complete.
 bleopt complete_menu_complete=
 
+# Execute pasted multiline commands with Enter. Herdr uses this for managed launches.
+ble-bind -m emacs -f 'C-m' 'accept-line'
+ble-bind -m emacs -f 'RET' 'accept-line'
+
 # To bring the fish-style suggestions back, comment out the two lines above.
 # When ghost text is shown, Right-arrow / End / Ctrl-E accept it (Alt-F = one word).

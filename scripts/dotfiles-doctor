@@ -1,0 +1,84 @@
+#!/usr/bin/env -S python3 -B
+"""Inspect declared configuration without applying it or evaluating templates."""
+
+import sys
+
+if sys.version_info < (3, 11):  # noqa: UP036 - guard users invoking an older system Python
+    print("error: Python 3.11 or newer is required.", file=sys.stderr)
+    sys.exit(2)
+sys.dont_write_bytecode = True
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import argparse
+import json
+
+from provision.checks import inspect
+from provision.inventory import InputError, import_current, load_record
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--home", type=Path, default=Path.home())
+    parser.add_argument(
+        "--source", type=Path, default=Path(__file__).resolve().parents[1]
+    )
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--machine",
+        type=Path,
+        help="explicit TOML record owned by an overlay or local user",
+    )
+    mode.add_argument(
+        "--import-current",
+        action="store_true",
+        help="print a migration preview; never save or apply it",
+    )
+    parser.add_argument("--id", help="stable machine id for migration preview")
+    parser.add_argument("--owner", choices=["personal", "work", "local"])
+    parser.add_argument(
+        "--json", action="store_true", help="structured findings (doctor mode only)"
+    )
+    args = parser.parse_args()
+    try:
+        if args.import_current:
+            if not args.id or not args.owner or args.json:
+                raise InputError(
+                    "--import-current requires --id and --owner, without --json."
+                )
+            print(import_current(args.home, args.id, args.owner), end="")
+            return 0
+        if not args.machine or args.id or args.owner:
+            raise InputError(
+                "Use --machine RECORD, or --import-current --id ID --owner OWNER."
+            )
+        record = load_record(args.machine)
+        findings = inspect(record, args.home, args.source)
+    except InputError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
+    except OSError:
+        print(
+            "error: Cannot inspect an input path; check access and file types.",
+            file=sys.stderr,
+        )
+        return 2
+    result = {"schema_version": 1, "machine": record["id"], "findings": findings}
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"Machine {record['id']} ({record['profile']})")
+        for finding in findings:
+            print(f"{finding['status']:10} {finding['check']}: {finding['message']}")
+            if finding["path"]:
+                print(f"           {finding['path']}")
+        counts = {
+            status: sum(f["status"] == status for f in findings)
+            for status in ("matching", "drifted", "missing", "blocked", "unverified")
+        }
+        print("\n" + ", ".join(f"{n} {status}" for status, n in counts.items()))
+    return int(any(f["status"] != "matching" for f in findings))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

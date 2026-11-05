@@ -39,6 +39,20 @@ install_apt() {
         "{{ . }}"
 {{- end }}
     )
+    # Prefer the distro's signed packages where their versions meet the tool
+    # requirements. This path is acceptance-tested on Ubuntu 26.04 only.
+    local distro_id distro_version
+    distro_id="$(. /etc/os-release && printf '%s' "$ID")"
+    distro_version="$(. /etc/os-release && printf '%s' "$VERSION_ID")"
+    if [ "$distro_id" = ubuntu ] && [ "$distro_version" = 26.04 ]; then
+        common_pkgs+=(
+{{- range (index .apt "ubuntu_26_04") }}
+            "{{ . }}"
+{{- end }}
+        )
+        # wslu is unavailable on 26.04; WSL interop already supplies the bridge.
+        extra_pkgs=()
+    fi
     if ! apt_needs_install "${common_pkgs[@]}" "${extra_pkgs[@]}"; then
         echo "apt: all packages already installed; skipping sudo apt-get"
         return 0
@@ -178,34 +192,9 @@ if ! command -v delta >/dev/null 2>&1; then
     install -m 0755 "$TMP/delta-${DELTA_VER}-${ARCH_TAG}-unknown-linux-gnu/delta" "$HOME/.local/bin/delta"
 fi
 
-# Neovim — current LazyVim requires >= 0.11.0.
-# Release artifact name changed in 0.11: was nvim-linux64.tar.gz, now nvim-linux-x86_64.tar.gz.
-{{- if ne .profile "embedded" }}
-NVIM_VER="{{ index .release_binary "nvim" }}"
-NVIM_INSTALLED_VER="$(nvim --version 2>/dev/null | head -1 | awk '{print $2}' | sed 's/^v//' || true)"
-NVIM_INSTALLED_MINOR=0
-if [ -n "$NVIM_INSTALLED_VER" ]; then
-    NVIM_INSTALLED_MINOR="$(echo "$NVIM_INSTALLED_VER" | cut -d. -f2)"
-fi
-if [ "${NVIM_INSTALLED_MINOR:-0}" -lt 11 ] 2>/dev/null; then
-    TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-    curl -fsSL "https://github.com/neovim/neovim/releases/download/v${NVIM_VER}/nvim-linux-x86_64.tar.gz" -o "$TMP/nvim.tgz"
-    tar -xzf "$TMP/nvim.tgz" -C "$TMP"
-    NVIM_EXTRACTED="$(find "$TMP" -maxdepth 1 -type d -name 'nvim-linux*' | head -1)"
-    rm -rf "$HOME/.local/share/nvim-runtime"
-    mv "$NVIM_EXTRACTED" "$HOME/.local/share/nvim-runtime"
-    ln -sfn "$HOME/.local/share/nvim-runtime/bin/nvim" "$HOME/.local/bin/nvim"
-    # NOTE: an earlier version of this script extracted nvim INTO ~/.local/share/nvim/,
-    # which is also nvim's XDG data dir (where lazy.nvim stores plugins). On affected boxes
-    # the data dir now has stale bin/share/lib subtrees alongside the lazy/ plugin tree.
-    # Manual cleanup (safe to run when nvim is closed):
-    #   for d in bin share lib; do rm -rf ~/.local/share/nvim/$d; done
-fi
-{{- end }}
-
 # fd (binary published as `fd` upstream; alias `fdfind` symlinked for Debian-muscle-memory).
 FD_VER="{{ index .release_binary "fd" }}"
-if ! command -v fd >/dev/null 2>&1; then
+if ! command -v fd >/dev/null 2>&1 && ! command -v fdfind >/dev/null 2>&1; then
     TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
     curl -fsSL "https://github.com/sharkdp/fd/releases/download/v${FD_VER}/fd-v${FD_VER}-${ARCH_TAG}-unknown-linux-gnu.tar.gz" -o "$TMP/fd.tgz"
     tar -xzf "$TMP/fd.tgz" -C "$TMP"
@@ -215,7 +204,7 @@ fi
 
 # bat (`batcat` symlink for Debian-muscle-memory).
 BAT_VER="{{ index .release_binary "bat" }}"
-if ! command -v bat >/dev/null 2>&1; then
+if ! command -v bat >/dev/null 2>&1 && ! command -v batcat >/dev/null 2>&1; then
     TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
     curl -fsSL "https://github.com/sharkdp/bat/releases/download/v${BAT_VER}/bat-v${BAT_VER}-${ARCH_TAG}-unknown-linux-gnu.tar.gz" -o "$TMP/bat.tgz"
     tar -xzf "$TMP/bat.tgz" -C "$TMP"

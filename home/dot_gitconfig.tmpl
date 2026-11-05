@@ -90,3 +90,9 @@
 [safe]
     directory = /home/gcrum/projects/narsil/sw-gc-yocto-nxp
     directory = /__w/openmct/openmct
+
+{{ if .bootstrap_work_overlay }}
+# Additional work-specific Git configuration.
+[include]
+    path = ~/.config/dotfiles-work/git/work.conf
+{{ end }}

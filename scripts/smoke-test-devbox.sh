@@ -3,7 +3,7 @@ set -euo pipefail
 trap 'echo "FAIL: $BASH_SOURCE:$LINENO" >&2; exit 1' ERR
 
 echo "== Tools present =="
-for t in git curl bash eza rg zoxide fzf tmux delta starship nvim keychain; do
+for t in git curl bash eza rg zoxide fzf tmux delta starship vim keychain; do
     command -v "$t" >/dev/null 2>&1 || { echo "MISSING: $t"; exit 1; }
 done
 # WSL-only tools should be absent
@@ -15,11 +15,10 @@ echo "  ok"
 echo "== ~/.bashrc sources modular files =="
 grep -q '/.config/bash/' "$HOME/.bashrc"
 
-echo "== Neovim config files + binary present =="
-for f in init.lua lua/config/lazy.lua; do
-    test -r "$HOME/.config/nvim/$f" || { echo "MISSING: ~/.config/nvim/$f"; exit 1; }
-done
-nvim --headless --noplugin -c 'qa!' 2>&1
+echo "== Vim config loads without errors =="
+test -r "$HOME/.vimrc"
+vim -n -i NONE -es -u "$HOME/.vimrc" -c 'qa!'
+echo "  ok"
 
 echo "== tmux config OK =="
 tmux -f "$HOME/.tmux.conf" -L smoke new -d -s smoke "exit"

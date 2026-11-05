@@ -1,0 +1,12 @@
+#!/usr/bin/env -S python3 -B
+"""Install the explicit developer bundle, or list declarations without mutation."""
+
+import sys
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from provision.tool_bundle import main
+
+if __name__ == "__main__":
+    sys.exit(main())

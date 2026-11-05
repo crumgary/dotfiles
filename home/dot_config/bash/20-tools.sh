@@ -51,8 +51,13 @@ fi
 # pnpm.
 if [ -d "$HOME/.local/share/pnpm" ]; then
     export PNPM_HOME="$HOME/.local/share/pnpm"
+    case ":$PATH:" in *":$PNPM_HOME/bin:"*) ;; *) PATH="$PNPM_HOME/bin:$PATH" ;; esac
     case ":$PATH:" in *":$PNPM_HOME:"*) ;; *) PATH="$PNPM_HOME:$PATH" ;; esac
 fi
+
+# Completions installed by agent CLIs.
+[ -r "$HOME/.bash_completion.d/herdr" ] && . "$HOME/.bash_completion.d/herdr"
+[ -r "$HOME/.bash_completion.d/opencode" ] && . "$HOME/.bash_completion.d/opencode"
 
 # opencode.
 if [ -d "$HOME/.opencode" ]; then

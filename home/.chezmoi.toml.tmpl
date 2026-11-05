@@ -11,15 +11,21 @@
 {{- $profile := promptChoiceOnce . "profile" "Profile" (list "wsl" "devbox" "lab" "embedded") -}}
 {{- $work    := promptBoolOnce   . "work"    "Is this a work machine? (true/false)" -}}
 
-{{- $enable_ai_assistant := false -}}
+{{- /* AI coding CLIs + supporting tooling (claude/agy/opencode/codex, nvm, playwright). */ -}}
+{{- /* Legacy all-in-one installer is disabled for new setups. */ -}}
+{{- $install_agent_clis := false -}}
+{{- $agent_apps_csv := "" -}}
+{{- $agent_apps := list -}}
 {{- if ne $profile "embedded" -}}
-  {{- $enable_ai_assistant = promptBoolOnce . "enable_ai_assistant" "Enable AI assistant in Neovim? (true/false)" -}}
+  {{- $agent_apps_csv = promptStringOnce . "agent_apps_csv" "AI apps, comma-separated (claude,codex,opencode,antigravity; blank for none)" -}}
+  {{- if ne $agent_apps_csv "" -}}
+    {{- range splitList "," $agent_apps_csv -}}{{- $agent_apps = append $agent_apps (trim .) -}}{{- end -}}
+  {{- end -}}
 {{- end -}}
 
-{{- /* AI coding CLIs + supporting tooling (claude/agy/opencode/codex, nvm, playwright). */ -}}
-{{- $install_agent_clis := false -}}
+{{- $install_developer_tools := false -}}
 {{- if ne $profile "embedded" -}}
-  {{- $install_agent_clis = promptBoolOnce . "install_agent_clis" "Install AI coding CLIs (claude/agy/opencode/codex) + nvm & Playwright? (true/false)" -}}
+  {{- $install_developer_tools = promptBoolOnce . "install_developer_tools" "Install developer tools (RTK, gh-axi, ACLI, actionlint, skopeo, asciinema, Playwright) and stage skills? (true/false)" -}}
 {{- end -}}
 
 {{- $wsl_windows_username := "" -}}
@@ -68,8 +74,10 @@
     git_user_email            = {{ $git_user_email            | quote }}
     profile                   = {{ $profile                   | quote }}
     work                      = {{ $work }}
-    enable_ai_assistant       = {{ $enable_ai_assistant }}
     install_agent_clis        = {{ $install_agent_clis }}
+    agent_apps_csv            = {{ $agent_apps_csv | quote }}
+    agent_apps                = {{ $agent_apps | toJson }}
+    install_developer_tools   = {{ $install_developer_tools }}
     wsl_windows_username      = {{ $wsl_windows_username      | quote }}
     bootstrap_priv_overlay    = {{ $bootstrap_priv_overlay }}
     priv_repo_url             = {{ $priv_repo_url             | quote }}

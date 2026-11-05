@@ -18,6 +18,10 @@ for f in ~/.config/bash/*.sh; do
 done
 unset f
 
+
+export PATH="$HOME/.local/bin:$PATH"
+[ -r "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
 # Local-only overrides — never managed by chezmoi.
 [ -r ~/.bashrc.local ] && . ~/.bashrc.local
 

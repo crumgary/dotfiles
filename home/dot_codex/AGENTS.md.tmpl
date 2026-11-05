@@ -1,0 +1,4 @@
+{{ includeTemplate "dot_config/agents/AGENTS.md.tmpl" . }}
+{{ if and (hasKey . "agent_apps") (has "codex" .agent_apps) }}
+@{{ .chezmoi.homeDir }}/.codex/RTK.md
+{{ end }}

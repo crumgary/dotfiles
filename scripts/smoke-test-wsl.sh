@@ -4,7 +4,7 @@ set -euo pipefail
 trap 'echo "FAIL: $BASH_SOURCE:$LINENO" >&2; exit 1' ERR
 
 echo "== Tools present =="
-for t in git curl bash eza batcat fdfind rg zoxide fzf tmux delta starship nvim keychain; do
+for t in git curl bash eza batcat fdfind rg zoxide fzf tmux delta starship vim keychain; do
     command -v "$t" >/dev/null 2>&1 || { echo "MISSING: $t"; exit 1; }
 done
 echo "  ok"
@@ -27,17 +27,9 @@ echo "== starship config exists =="
 test -r "$HOME/.config/starship.toml"
 echo "  ok"
 
-echo "== Neovim config files present =="
-for f in init.lua lua/config/lazy.lua lua/config/options.lua lua/config/keymaps.lua \
-         lua/config/autocmds.lua lua/plugins/overrides.lua; do
-    test -r "$HOME/.config/nvim/$f" || { echo "  MISSING: ~/.config/nvim/$f"; exit 1; }
-done
-echo "  ok"
-
-echo "== Neovim launches without errors (--noplugin smoke) =="
-# Full plugin sync is too slow + sometimes blocks on first interactive launch.
-# Just confirm nvim binary works.
-nvim --headless --noplugin -c 'qa!' 2>&1
+echo "== Vim config loads without errors =="
+test -r "$HOME/.vimrc"
+vim -n -i NONE -es -u "$HOME/.vimrc" -c 'qa!'
 echo "  ok"
 
 echo "== tmux config loads without error =="

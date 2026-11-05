@@ -5,7 +5,7 @@
 # Ubuntu/Debian package names.
 # fd-find, bat, zoxide, fzf, keychain — moved to [release_binary] so they install without sudo
 # on machines where the user doesn't have it.
-# eza, delta, nvim, starship — release-binary too (versions in repos are too old).
+# eza, delta, starship — release-binary too (versions in repos are too old).
 common = [
   "build-essential",
   "ca-certificates",
@@ -16,8 +16,6 @@ common = [
   "gnupg",
   "jq",
   "less",
-  "nodejs",   # for Mason-installed LSPs (pyright, jsonls, ts-ls, yaml-ls)
-  "npm",      # ditto
   "python3-pip",
   "ripgrep",
   "tmux",
@@ -25,11 +23,19 @@ common = [
   "unzip",
   "wget",
   "shellcheck",
+  "vim",
 ]
 wsl = ["wslu"]
 devbox = []
 lab = []
 embedded = []
+
+# Verified package-manager path for Ubuntu 26.04. Older releases retain the
+# release-binary fallback below when these versions are unavailable.
+ubuntu_26_04 = [
+  "eza", "bat", "fd-find", "zoxide", "fzf", "keychain", "glow",
+  "git-delta", "starship", "fontconfig", "locales",
+]
 
 [dnf]
 # RHEL/AlmaLinux/Fedora package names. Same release-binary fallback policy as apt.
@@ -43,8 +49,6 @@ common = [
   "gnupg2",
   "jq",
   "less",
-  "nodejs",
-  "npm",
   "python3-pip",
   "ripgrep",
   "tmux",
@@ -52,6 +56,7 @@ common = [
   "unzip",
   "wget",
   "ShellCheck",
+  "vim-enhanced",
 ]
 wsl = []
 devbox = []
@@ -59,11 +64,10 @@ lab = []
 embedded = []
 
 [release_binary]
-# Tools we always install from GitHub releases — version-pinned for consistency.
-# These are sudo-free and consistent across distros; bumping a version here updates every machine.
+# Fallback versions for tools not provided by the verified distro package path.
+# Ubuntu 26.04 uses signed apt packages; older systems retain sudo-free downloads.
 eza      = "0.18.21"
 delta    = "0.18.2"
-nvim     = "0.11.3"
 fd       = "10.2.0"
 bat      = "0.24.0"
 zoxide   = "0.9.6"
@@ -74,3 +78,17 @@ keychain = "2.9.4"
 [fonts]
 nerd_font           = "JetBrainsMono"
 nerd_font_version   = "3.2.1"
+
+# Command requirements for the read-only doctor. These complement package names
+# above: command aliases vary by distro, and presence never proves a version.
+[doctor]
+common = [
+  "bash", "git", "curl", "gh", "rg", "jq", "tmux", "starship", "vim",
+  "eza", "delta", "fd|fdfind", "bat|batcat", "zoxide", "fzf", "glow", "keychain",
+]
+embedded = ["sh", "vi"]
+
+[doctor.bundles]
+coding = ["claude", "agy", "opencode", "codex", "herdr", "node", "npm"]
+
+developer = ["node", "npm", "gh", "gh-axi", "rtk", "acli", "actionlint", "skopeo", "asciinema", "playwright", "uv", "graphify", "graphify-mcp", "ctx7", "skills", "hyperframes", "chrome-devtools-axi", "axi-chrome", "jira-axi", "confluence-axi", "ffmpeg", "magick", "pandoc", "pdftotext", "rsvg-convert"]

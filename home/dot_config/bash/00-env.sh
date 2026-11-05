@@ -11,9 +11,7 @@ done
 export PATH
 
 # Editor / pager preferences (fall back gracefully).
-if command -v nvim >/dev/null 2>&1; then
-    export EDITOR=nvim VISUAL=nvim
-elif command -v vim >/dev/null 2>&1; then
+if command -v vim >/dev/null 2>&1; then
     export EDITOR=vim VISUAL=vim
 else
     export EDITOR=vi VISUAL=vi

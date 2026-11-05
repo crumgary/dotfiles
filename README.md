@@ -8,14 +8,14 @@ My personal dotfiles, managed by [chezmoi](https://www.chezmoi.io/). Public — 
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply crumgary/dotfiles
 ```
 
-You'll be prompted for: GitHub username, git name/email, profile (`wsl`/`devbox`/`lab`/`embedded`), work flag, AI-assistant flag, whether to clone the personal overlay (and/or the work overlay), whether to create convenience shortcuts to your repos (and where), and (on WSL only) Windows username. Answers persist at `~/.config/chezmoi/chezmoi.toml` — re-runs of `chezmoi apply` are silent.
+You'll be prompted for: GitHub username, git name/email, profile (`wsl`/`devbox`/`lab`/`embedded`), work flag, selected AI apps and developer tools, whether to clone the personal overlay (and/or the work overlay), whether to create convenience shortcuts to your repos (and where), and (on WSL only) Windows username. Answers persist at `~/.config/chezmoi/chezmoi.toml` — re-runs of `chezmoi apply` are silent.
 
 ## What this installs
 
 - **bash** + ble.sh (autosuggestions, syntax highlighting) + starship (two-line prompt)
 - **modern CLI:** eza, bat, ripgrep, fd, zoxide, delta
 - **fzf** with Ctrl-R / Ctrl-T / Alt-C bindings and helper git functions
-- **LazyVim** (gated per profile)
+- **Vim** with a small shared `.vimrc`
 - **tmux** with `Ctrl-a` prefix, TPM plugins on full profiles
 - **git** with sensible defaults, delta pager, curated aliases
 - **JetBrainsMono Nerd Font** (Linux + Windows on WSL)
@@ -26,10 +26,10 @@ See [`docs/cheatsheet.md`](docs/cheatsheet.md) for the keybind/alias reference.
 
 | Profile | For | Notes |
 |---|---|---|
-| `wsl` | WSL2 Ubuntu daily-driver | Full shell + LazyVim + WSL extras |
-| `devbox` | Powerful remote dev/build servers | Full shell + LazyVim, no WSL bits |
-| `lab` | Thinner SSH targets, lab hardware | Light LazyVim (no LSPs), still has CLI swaps |
-| `embedded` | busybox / minimal | Tiny `.bashrc` + `.vimrc.minimal` only |
+| `wsl` | WSL2 Ubuntu daily-driver | Full shell + Vim + WSL extras |
+| `devbox` | Powerful remote dev/build servers | Full shell + Vim, no WSL bits |
+| `lab` | Thinner SSH targets, lab hardware | Vim and modern CLI tools |
+| `embedded` | busybox / minimal | Tiny `.bashrc` + `.vimrc` only |
 
 ## Embedded fallback
 
@@ -76,6 +76,10 @@ accordingly; the others use the cross-tool `AGENTS.md` name. The symlinks are
 created by chezmoi even when a tool isn't installed yet, so a fresh machine is
 ready the moment you add one. Not deployed on the `embedded` profile.
 
+When the personal and work overlays are enabled, their `agents/AGENTS.md` files
+are included conditionally by the shared template. This keeps machine-specific
+and work-specific instructions out of the public base configuration.
+
 ## Convenience shortcuts
 
 The repos live at their standard locations (`~/.local/share/chezmoi` and
@@ -101,6 +105,25 @@ chezmoi diff       # preview before applying
 chezmoi edit-config # change profile / work flag / etc.
 ```
 
+## Machine inventory and read-only doctor
+
+[Provisioning guide](docs/provisioning/README.md): declare machine selections in
+one private overlay and inspect configuration drift without applying changes.
+Requires Python 3.11+; templates and unaudited checks are reported as unverified.
+
+```console
+python3 -B scripts/dotfiles-doctor --machine ~/.config/dotfiles-priv/machines/primary-wsl.toml
+```
+
+On Ubuntu 26.04, core CLI tools and Vim use distro packages. See the
+[clean WSL acceptance results](docs/provisioning/2026-11-04-wsl-acceptance.md).
+
 ## License
 
 MIT.
+
+## Optional developer tools
+
+Enable `install_developer_tools` to add the [declared developer-tool bundle](docs/provisioning/developer-tools.md)
+and stage pinned tstack/Superpowers sources. App-specific activation and logins
+remain separate from installation.
