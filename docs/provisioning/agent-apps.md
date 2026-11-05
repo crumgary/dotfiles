@@ -3,7 +3,9 @@
 The selected apps are Claude Code, Codex, OpenCode and Antigravity CLI. This setup
 is declared in `config/tools.lock.json`, installed by
 `scripts/install-agent-apps`, and registered by `scripts/provision/skill_adapters.py`.
-The new setup does not run the legacy install-every-agent script.
+Maintainer reference for the selected-app installer. For normal operation and
+login commands, start with the [setup guide](setup.md). This setup does not run
+the legacy install-every-agent script.
 
 ## Configure and deploy
 
@@ -29,17 +31,16 @@ chezmoi apply
 ```
 
 The after-script runs the installer with `--from-chezmoi`, so selections are read
-as TOML rather than interpolated into a shell command. It fingerprints both the
-app lock and the developer/skill lock. The installed-state receipt is
+as TOML rather than interpolated into a shell command. It fingerprints the shared
+`config/tools.lock.json` catalog. The installed-state receipt is
 `~/.local/state/dotfiles/agent-apps.json`.
 
 ## Runtime and installation ownership
 
-Node 26 LTS is explicit policy: the verified version is 26.13.0, installed through
-NodeSource's signed Node 26 apt repository at `/usr/bin/node`. This is a NodeSource
-package, not Ubuntu's older Node 22 package or a Node-project apt repository. It
-supplies npm 11.20.0 too. Node/npm were removed from baseline package ownership;
-the developer/runtime bundle owns them. No nvm or second Node manager is added.
+The developer bundle owns Node and npm through NodeSource's signed apt
+repository at `/usr/bin/node`. The chosen Node major is declared in the shared
+catalog. No nvm or second Node manager is added; baseline packages do not own a
+competing Node/npm installation.
 
 Claude Code uses its verified native bootstrap and native install command at the
 declared version. Antigravity uses the official versioned native artifact with
@@ -55,7 +56,7 @@ Newer or altered installations are reported for review, not silently downgraded.
 Selected managed apps use the [explicit tool updater](tool-updates.md).
 Background native updates/checks are disabled so they do not compete with the
 approved catalog; manual native upgrades can require reconciliation.
-Npm versions are pinned but this slice does not promise fully locked transitive
+Npm versions are pinned but the installer does not promise fully locked transitive
 dependencies or a byte-identical npm reconstruction.
 
 ## Skills and rules
@@ -82,44 +83,9 @@ of known owned registrations use app-native uninstall/install operations; custom
 or modified content is retained with a conflict. Shared global instructions remain
 in `~/.config/agents/AGENTS.md`; OpenCode receives a link to that same source.
 
-## T3 on Windows
+## Authentication and platform notes
 
-In the Windows T3 desktop app, select `Ubuntu-26.04` as its WSL environment.
-Current upstream documentation places this under Settings > Sharing & access;
-older app versions label it Connections. T3 installs its matching server runtime
-inside the chosen distro automatically. This setup installs the Linux provider
-CLIs and Node; it creates no separate T3 server or background service.
-
-The apps must be authenticated inside the selected distro. Windows-side logins
-and the daily WSL instance's tokens were not copied. The remaining user actions
-are the supported sign-in flows, such as `claude auth login`, `codex login`,
-`opencode auth login`, and launching `agy` for its Google sign-in flow.
-
-## Acceptance and limits
-
-On the clean WSL target, all four version probes pass. Native plugin registries
-report Superpowers 7.0.2 enabled. Claude's component inspector lists 15 skills and
-a SessionStart hook. Antigravity lists 15 bundled skills. OpenCode's actual skill
-discovery lists 25 skills: its built-in skill plus nine tstack and fifteen
-Superpowers skills. Codex can render the local model-visible prompt without a
-model call, exposing both skill collections.
-
-Installation and local discovery are verified separately from authenticated
-model behavior. No billable model calls or browser login were made. Full skill
-invocation and startup-hook behavior during an authenticated agent turn remain
-login-gated. RTK automatic integration is registered through `rtk init` for all
-four selected apps. Codex gets a generated instruction file that renders the
-canonical shared rules and adds its RTK reference before initialization; the
-shared rules remain unchanged. Hook payload checks exercise local command
-rewriting without running a model. The pinned RTK OpenCode initializer also
-configures Claude, so this bundle requires selecting Claude with OpenCode.
-Repeat installation preserves RTK settings and generated plugin files.
-
-See the [existing workstation audit](current-workstation-audit.md) for additional
-installed tools and skills considered for future optional bundles.
-
-Upstream documentation used: Node release schedule and NodeSource distributions;
-Claude Code setup/skills; official OpenAI skills/plugins docs; OpenCode skills;
-Antigravity skills/customization discovery; Superpowers per-app installation;
-and T3's `docs/user/install.md` WSL section. CLI help from the installed pinned
-versions verified the concrete plugin commands before registration.
+Follow the [authentication checklist](setup.md#one-time-authentication-checklist)
+after installation. Installation, local discovery and authenticated model
+behavior are separate checks; a successful install does not prove a provider
+login or that an agent invoked every installed skill.

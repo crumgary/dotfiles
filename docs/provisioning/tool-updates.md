@@ -23,7 +23,7 @@ version is retained. Network/authentication errors remain errors, not silent
 release deferrals. Frozen candidates are checked again before any source or
 system installation changes.
 
-GitHub discovery uses `GH_TOKEN`, `GITHUB_TOKEN`, or this WSL's `gh auth login`
+GitHub discovery uses `GH_TOKEN`, `GITHUB_TOKEN`, or the target user's `gh auth login`
 credentials. Successful GitHub API metadata is cached privately for 15 minutes
 under `${XDG_CACHE_HOME:-~/.cache}/dotfiles/upstream/github`, including across
 `--check` and `--apply --refresh`. Refresh replaces a frozen candidate; it does
@@ -32,7 +32,7 @@ checks are not cached by this layer. Without a login, GitHub's anonymous hourly
 quota is shared with other traffic from the same public IP. Rate-limit errors
 report `Retry-After` or the UTC quota reset time and stop without retrying.
 Authentication/access failures never fall back to anonymous requests. Run
-`gh auth login` inside the target WSL for a higher quota, or retry after the
+`gh auth login` on the target machine for a higher quota, or retry after the
 reported wait.
 
 Downloaded native artifacts are checked against publisher checksums when
@@ -99,18 +99,3 @@ those flags, the tested catalog remains a normal local Git change for review.
 Credentials, account login, memory databases and observations are never copied
 between machines by this workflow. GitHub authentication improves discovery
 rate limits; a fresh machine otherwise uses the public API allowance.
-
-## Acceptance
-
-The test Ubuntu-26.04 WSL successfully ran a complete update to Antigravity
-1.5.1, HyperFrames 0.9.16, Graphify 0.9.103 and refreshed skill revisions.
-An unchanged follow-up update preserved configuration/catalog contents, modes
-and mtimes; ordinary chezmoi apply stayed silent and clean. Auto-update ownership
-was checked in Claude/OpenCode settings and the direct Antigravity launcher.
-The updated HyperFrames rendered a local 1920x1080 H.264 clip.
-
-Local regression coverage includes candidate failure/resume, concurrent edits,
-legacy receipt migration, modified/foreign content preservation, checksum
-verification, and real Git commit isolation from other staged files. Provider
-model turns still require user login. The existing host WSL interop shutdown
-limitation remains documented in [the setup guide](usable-wsl.md).

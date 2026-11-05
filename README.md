@@ -98,6 +98,13 @@ These are pure navigation aids - editing through a shortcut is identical to
 editing the real repo. Only overlays you actually installed are linked. Change
 the directory (or turn it off) any time with `chezmoi edit-config`.
 
+## First sign-ins
+
+After installation, follow the [one-time authentication checklist](docs/provisioning/setup.md#one-time-authentication-checklist)
+for Claude Code, Codex, GitHub, Atlassian, OpenCode and Antigravity. Run the login
+commands on the target machine as your normal user. Sign into GitHub before using
+`dotfiles-update` to avoid the small anonymous API quota.
+
 ## Configuration and tool updates
 
 ```bash
@@ -124,7 +131,7 @@ failed candidate; unavailable npm releases are deferred. See [version and update
 
 ## Machine inventory and read-only doctor
 
-[Provisioning guide](docs/provisioning/README.md): declare machine selections in
+[Doctor reference](docs/provisioning/doctor.md): declare machine selections in
 one private overlay and inspect configuration drift without applying changes.
 Requires Python 3.11+; templates and unaudited checks are reported as unverified.
 
@@ -132,8 +139,7 @@ Requires Python 3.11+; templates and unaudited checks are reported as unverified
 python3 -B scripts/dotfiles-doctor --machine ~/.config/dotfiles-priv/machines/primary-wsl.toml
 ```
 
-On Ubuntu 26.04, core CLI tools and Vim use distro packages. See the
-[clean WSL acceptance results](docs/provisioning/2026-11-04-wsl-acceptance.md).
+On Ubuntu 26.04, core CLI tools and Vim use distro packages.
 
 ## License
 
