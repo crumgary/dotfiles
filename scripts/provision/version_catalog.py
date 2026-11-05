@@ -4,39 +4,12 @@ import base64
 import copy
 import hashlib
 import json
-import os
 import re
-import shutil
-import subprocess
 import urllib.parse
-import urllib.request
 
 from provision.npm_releases import UnavailableNpmRelease, check_npm_release
+from provision.upstream_http import fetch_bytes
 from provision.version_artifacts import resolve_artifacts
-
-
-def fetch_bytes(url):
-    if url.startswith("https://api.github.com/") and shutil.which("gh"):
-        result = subprocess.run(
-            ["gh", "api", url.removeprefix("https://api.github.com/")],
-            capture_output=True,
-            timeout=90,
-            check=False,
-        )
-        if result.returncode == 0:
-            return result.stdout
-        # A fresh machine may not have a GitHub login yet. Public discovery works
-        # anonymously too; authenticated quota failures remain explicit below.
-    headers = {"User-Agent": "dotfiles-tool-updater", "Accept": "application/json"}
-    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    if token and url.startswith("https://api.github.com/"):
-        headers["Authorization"] = "Bearer " + token
-    request = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(request, timeout=120) as response:
-        data = response.read(512 * 1024 * 1024 + 1)
-    if len(data) > 512 * 1024 * 1024:
-        raise ValueError("Upstream payload exceeds the update size limit")
-    return data
 
 
 def fetch_json(url):

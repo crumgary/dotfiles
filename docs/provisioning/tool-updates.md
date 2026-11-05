@@ -23,6 +23,18 @@ version is retained. Network/authentication errors remain errors, not silent
 release deferrals. Frozen candidates are checked again before any source or
 system installation changes.
 
+GitHub discovery uses `GH_TOKEN`, `GITHUB_TOKEN`, or this WSL's `gh auth login`
+credentials. Successful GitHub API metadata is cached privately for 15 minutes
+under `${XDG_CACHE_HOME:-~/.cache}/dotfiles/upstream/github`, including across
+`--check` and `--apply --refresh`. Refresh replaces a frozen candidate; it does
+not bypass that short metadata cache. Artifact downloads and npm dependency
+checks are not cached by this layer. Without a login, GitHub's anonymous hourly
+quota is shared with other traffic from the same public IP. Rate-limit errors
+report `Retry-After` or the UTC quota reset time and stop without retrying.
+Authentication/access failures never fall back to anonymous requests. Run
+`gh auth login` inside the target WSL for a higher quota, or retry after the
+reported wait.
+
 Downloaded native artifacts are checked against publisher checksums when
 provided, then pinned by archive and binary SHA-256. Skills retain complete
 source archives and explicit exclusions for unrelated upstream symlinks.
