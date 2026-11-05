@@ -119,7 +119,8 @@ Ubuntu packages follow their configured apt repositories and normal security
 updates. Node stays on the chosen LTS major. Other tool versions, artifact hashes
 and skill revisions are refreshed automatically. Selected AI apps use this
 updater as their update owner. Failed updates retain a frozen candidate: rerun
-the same command to resume. See [version and update policy](docs/provisioning/tool-updates.md).
+the same selection to resume. Use `--apply --refresh` to explicitly replace a
+failed candidate; unavailable npm releases are deferred. See [version and update policy](docs/provisioning/tool-updates.md).
 
 ## Machine inventory and read-only doctor
 

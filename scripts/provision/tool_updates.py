@@ -12,6 +12,7 @@ import tomllib
 import uuid
 from pathlib import Path
 
+from provision.npm_releases import UnavailableNpmRelease, validate_npm_updates
 from provision.tool_bundle import require_supported_host, stage_skills
 from provision.version_catalog import changes, resolve_catalog
 
@@ -44,6 +45,14 @@ def atomic_write(path, data, mode=0o600):
 
 def install_candidate(candidate, catalog_path, home, source, only):
     """Use the same installers as normal apply; no generated caches are fabricated."""
+    approved = json.loads((source / "config/tools.lock.json").read_text())
+    try:
+        validate_npm_updates(candidate, approved)
+    except UnavailableNpmRelease as error:
+        raise ValueError(
+            str(error)
+            + "; retry later, or use --apply --refresh to resolve a new candidate and defer unavailable releases"
+        ) from error
     for name, entry in candidate["skills"].items():
         stage_skills(home, name, entry)
     apt = (
@@ -90,6 +99,7 @@ def apply_update(
     only=None,
     resolver=resolve_catalog,
     installer=install_candidate,
+    refresh=False,
 ):
     """Publish only a verified candidate. A failed install remains resumable."""
     catalog_path, home = Path(catalog_path), Path(home)
@@ -116,18 +126,34 @@ def apply_update(
                     "A different update is pending; rerun its original selection first"
                 )
             candidate = record["candidate"]
-            if digest(before) != record["base_sha256"] and before != encoded(candidate):
+            if (
+                not refresh
+                and digest(before) != record["base_sha256"]
+                and before != encoded(candidate)
+            ):
                 raise ValueError(
                     "Catalog changed since the pending update; reconcile it before retrying"
                 )
-        else:
-            candidate = resolver(old, only)
+        if not pending.exists() or refresh:
+            deferred = []
+            candidate = (
+                resolver(old, only, deferred=deferred)
+                if resolver is resolve_catalog
+                else resolver(old, only)
+            )
+            if pending.exists():
+                archived = state / record["run"] / "superseded.json"
+                atomic_write(
+                    archived,
+                    encoded({**record, "status": "superseded by explicit refresh"}),
+                )
             record = {
                 "schema_version": 1,
                 "catalog": str(catalog_path.resolve()),
                 "base_sha256": digest(before),
                 "only": sorted(only or []),
                 "candidate": candidate,
+                "deferred": deferred,
                 "run": uuid.uuid4().hex,
             }
             atomic_write(pending, encoded(record))
@@ -160,6 +186,7 @@ def apply_update(
             )
         report = {
             "status": "verified",
+            "deferred": record.get("deferred", []),
             "changes": changes(old, candidate),
             "validation": validation,
             "catalog": str(catalog_path),
@@ -197,7 +224,14 @@ def main():
         action="store_true",
         help="push the commit to the current branch upstream; requires --commit",
     )
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="explicitly replace a failed frozen candidate using current upstream availability",
+    )
     args = parser.parse_args()
+    if args.refresh and not args.apply:
+        parser.error("--refresh requires --apply")
     if args.commit and not args.apply or args.push and not args.commit:
         parser.error("--commit requires --apply; --push requires --commit")
     only = (
@@ -213,11 +247,13 @@ def main():
             args.catalog.resolve().relative_to(ROOT)
         if not args.apply:
             before = json.loads(args.catalog.read_text())
-            candidate = resolve_catalog(before, only)
+            deferred = []
+            candidate = resolve_catalog(before, only, deferred=deferred)
             print(
                 json.dumps(
                     {
                         "mode": "check",
+                        "deferred": deferred,
                         "changes": changes(before, candidate),
                         "apt": "repository candidates; upgrades are installed only with --apply",
                         "node_major": candidate["runtime_major"],
@@ -234,7 +270,9 @@ def main():
             raise ValueError(
                 "Enable the developer bundle in chezmoi before applying tool updates"
             )
-        report = apply_update(args.catalog, Path.home(), only=only)
+        report = apply_update(
+            args.catalog, Path.home(), only=only, refresh=args.refresh
+        )
         if args.commit:
             relative = args.catalog.resolve().relative_to(ROOT)
             dirty = subprocess.run(

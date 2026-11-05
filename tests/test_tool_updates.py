@@ -29,13 +29,18 @@ def catalog():
     }
 
 
-def newer(before, only):
+def newer(before, only, **options):
     after = json.loads(json.dumps(before))
     after["developer"]["npm"]["sample"] = "1.1.0"
     return after
 
 
 class VersionResolutionTests(unittest.TestCase):
+    def setUp(self):
+        check = patch("provision.version_catalog.check_npm_release", return_value=None)
+        check.start()
+        self.addCleanup(check.stop)
+
     def test_selected_npm_update_is_discovered_without_other_requests(self):
         before = catalog()
         requests = []
@@ -295,3 +300,61 @@ class UpdateTransactionTests(unittest.TestCase):
                 git("diff", "--cached", "--name-only").strip(), "unrelated.txt"
             )
             self.assertNotIn("Co-authored-by", git("log", "-1", "--format=%B"))
+
+    def test_explicit_refresh_archives_failed_candidate_and_preserves_current_owner_edits(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as temporary:
+            path, home = self.fixture(Path(temporary))
+            with self.assertRaises(ValueError):
+                tool_updates.apply_update(
+                    path,
+                    home,
+                    resolver=newer,
+                    installer=lambda *args: (_ for _ in ()).throw(
+                        ValueError("unavailable release")
+                    ),
+                )
+            state = home / ".local/state/dotfiles/updates"
+            previous = json.loads((state / "pending.json").read_text())
+            owner = catalog()
+            owner["owner_note"] = "retain this catalog edit"
+            path.write_bytes(tool_updates.encoded(owner))
+            report = tool_updates.apply_update(
+                path,
+                home,
+                refresh=True,
+                resolver=lambda before, only: before,
+                installer=lambda *args: {"passed": True},
+            )
+            archive = json.loads(
+                (state / previous["run"] / "superseded.json").read_text()
+            )
+            self.assertEqual(
+                archive["candidate"]["developer"]["npm"]["sample"], "1.1.0"
+            )
+            self.assertEqual(json.loads(path.read_bytes()), owner)
+            self.assertEqual(report["status"], "verified")
+            self.assertFalse((state / "pending.json").exists())
+
+    def test_unavailable_frozen_candidate_is_blocked_before_source_or_system_changes(
+        self,
+    ):
+        from provision.npm_releases import UnavailableNpmRelease
+
+        with tempfile.TemporaryDirectory() as temporary:
+            path, home = self.fixture(Path(temporary))
+            with (
+                patch(
+                    "provision.npm_releases.check_npm_release",
+                    side_effect=UnavailableNpmRelease("missing dependency"),
+                ),
+                patch.object(tool_updates, "stage_skills") as stage,
+                patch.object(tool_updates.subprocess, "run") as run,
+            ):
+                with self.assertRaisesRegex(ValueError, "--refresh"):
+                    tool_updates.install_candidate(
+                        newer(catalog(), None), path, home, path.parent.parent, None
+                    )
+                stage.assert_not_called()
+                run.assert_not_called()

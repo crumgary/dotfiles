@@ -11,6 +11,7 @@ import subprocess
 import urllib.parse
 import urllib.request
 
+from provision.npm_releases import UnavailableNpmRelease, check_npm_release
 from provision.version_artifacts import resolve_artifacts
 
 
@@ -88,7 +89,14 @@ def known_names(catalog):
     )
 
 
-def resolve_catalog(catalog, only=None, get_json=fetch_json, get_bytes=fetch_bytes):
+def resolve_catalog(
+    catalog,
+    only=None,
+    get_json=fetch_json,
+    get_bytes=fetch_bytes,
+    npm_checker=None,
+    deferred=None,
+):
     """Return a complete candidate; the approved input remains untouched."""
     if only and set(only) - known_names(catalog):
         raise ValueError(
@@ -107,15 +115,30 @@ def resolve_catalog(catalog, only=None, get_json=fetch_json, get_bytes=fetch_byt
         return selected is None or name in selected
 
     candidate = copy.deepcopy(catalog)
+    npm_checker = npm_checker or check_npm_release
+    deferred = deferred if deferred is not None else []
+
+    def installable(package, version, name):
+        try:
+            npm_checker(package, version)
+            return True
+        except UnavailableNpmRelease as error:
+            deferred.append({"tool": name, "version": version, "reason": str(error)})
+            return False
+
     for name, version in catalog["developer"]["npm"].items():
         if wanted(name):
             latest = npm_metadata(name, get_json)["version"]
-            if stable_version(latest) > stable_version(version):
+            if stable_version(latest) > stable_version(version) and installable(
+                name, latest, name
+            ):
                 candidate["developer"]["npm"][name] = latest
     for name, entry in catalog["agents"].items():
         if entry["kind"] == "npm" and wanted(name):
             latest = npm_metadata(entry["package"], get_json)["version"]
-            if stable_version(latest) > stable_version(entry["version"]):
+            if stable_version(latest) > stable_version(
+                entry["version"]
+            ) and installable(entry["package"], latest, name):
                 candidate["agents"][name]["version"] = latest
     for name, entry in catalog["developer"].get("python", {}).items():
         if wanted(name):
@@ -144,6 +167,8 @@ def resolve_catalog(catalog, only=None, get_json=fetch_json, get_bytes=fetch_byt
             metadata = npm_metadata("claude-mem", get_json)
             latest = metadata["version"]
             if stable_version(latest) <= stable_version(entry["version"]):
+                continue
+            if not installable("claude-mem", latest, name):
                 continue
             result = copy.deepcopy(entry)
             result["version"] = latest

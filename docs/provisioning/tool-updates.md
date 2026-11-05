@@ -7,6 +7,7 @@ source revisions. Normal apply uses that catalog. Updates are explicit:
 dotfiles-update --check
 dotfiles-update --apply
 dotfiles-update --apply --only opencode
+dotfiles-update --apply --refresh       # intentionally replace a failed candidate
 dotfiles-update --apply --commit --push
 ```
 
@@ -14,6 +15,14 @@ The command is installed with the developer bundle. From a checkout it is also
 available as `python3 -B scripts/update-tools`. `--check` is the default and makes
 no installation or catalog changes. Discovery uses upstream stable npm/PyPI
 releases, official native release manifests and repository commit metadata.
+New npm releases are also resolved with npm in an isolated temporary directory
+using `--package-lock-only --ignore-scripts`. This checks the required dependency
+graph without installing packages or running lifecycle scripts. A release whose
+required version is unavailable is listed under `deferred` and its approved
+version is retained. Network/authentication errors remain errors, not silent
+release deferrals. Frozen candidates are checked again before any source or
+system installation changes.
+
 Downloaded native artifacts are checked against publisher checksums when
 provided, then pinned by archive and binary SHA-256. Skills retain complete
 source archives and explicit exclusions for unrelated upstream symlinks.
@@ -64,8 +73,12 @@ and reported as a conflict.
 Package installation is not a transaction across apt, npm, uv and native plugin
 managers. If a later stage fails, already-installed packages can remain newer.
 The old catalog is retained and the frozen candidate is resumable: rerun the
-same `--apply` selection. Do not delete the pending state or pull a different
-catalog over it to simulate rollback. The error and result report identify the
+same `--apply` selection. If the frozen candidate itself is unusable (for
+example, a publisher advertised a release before its companion dependency
+existed), use `--apply --refresh`. This explicitly resolves a new candidate from
+the current catalog and archives the previous candidate as `superseded.json`.
+It does not undo package changes already made. Do not delete pending state to
+simulate rollback. The error and result report identify the
 pending operation; resume after correcting the reported conflict or dependency.
 
 `--commit` commits only the validated catalog; `--push` uses the current branch's
