@@ -40,10 +40,10 @@ versions installed by Playwright are also distribution-managed.
 
 Only explicit selection enables the bundle. Ubuntu's older gh package is
 upgraded through GitHub's official repository for current APIs and newer gh-axi
-features. A newer installed apt package is an actionable conflict; the installer
-does not automatically downgrade it. Updates require intentionally changing the
-lock after validation. Older pinned apt versions may eventually become unavailable
-upstream, producing a failure rather than selecting another version silently.
+features. Apt values are tested minimum baselines. Newer security/distribution updates
+are accepted and package installation uses repository candidates by name.
+The [tool updater](tool-updates.md) resolves and validates new tool/skill versions
+without requiring manual checksum editing.
 
 ## Skills and app integration
 

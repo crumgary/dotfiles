@@ -52,7 +52,9 @@ scripts disabled where supported.
 Matching native version text is insufficient: existing Claude/Antigravity bytes
 must match the declared binary hash before their version output is trusted.
 Newer or altered installations are reported for review, not silently downgraded.
-Native vendor auto-updaters can consequently require a deliberate lock update.
+Selected managed apps use the [explicit tool updater](tool-updates.md).
+Background native updates/checks are disabled so they do not compete with the
+approved catalog; manual native upgrades can require reconciliation.
 Npm versions are pinned but this slice does not promise fully locked transitive
 dependencies or a byte-identical npm reconstruction.
 

@@ -91,4 +91,4 @@ embedded = ["sh", "vi"]
 [doctor.bundles]
 coding = ["claude", "agy", "opencode", "codex", "herdr", "node", "npm"]
 
-developer = ["node", "npm", "gh", "gh-axi", "rtk", "acli", "actionlint", "skopeo", "asciinema", "playwright", "uv", "graphify", "graphify-mcp", "ctx7", "skills", "hyperframes", "chrome-devtools-axi", "axi-chrome", "jira-axi", "confluence-axi", "ffmpeg", "magick", "pandoc", "pdftotext", "rsvg-convert"]
+developer = ["node", "npm", "gh", "gh-axi", "rtk", "acli", "actionlint", "skopeo", "asciinema", "playwright", "uv", "graphify", "graphify-mcp", "ctx7", "skills", "hyperframes", "chrome-devtools-axi", "axi-chrome", "dotfiles-update", "jira-axi", "confluence-axi", "ffmpeg", "magick", "pandoc", "pdftotext", "rsvg-convert"]

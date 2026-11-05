@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -25,6 +26,18 @@ def install_python_tools(home: Path, packages):
                 ],
                 text=True,
             ).strip()
+        if actual:
+            current = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", actual)
+            desired = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", entry["version"])
+            if (
+                not current
+                or not desired
+                or tuple(map(int, current.groups())) > tuple(map(int, desired.groups()))
+            ):
+                raise ValueError(
+                    "Python tool is newer than this catalog; automatic downgrade is disabled: "
+                    + name
+                )
         ready = all(
             (home / ".local/bin" / command).is_file() for command in entry["commands"]
         )

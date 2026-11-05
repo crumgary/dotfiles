@@ -14,7 +14,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from provision.skill_adapters import verify_plugin_files
+from provision.skill_adapters import source_root, verify_plugin_files
 from provision.tool_bundle import download, verify_payload
 
 
@@ -57,99 +57,206 @@ def write_file(path, data, mode=0o644):
     return True
 
 
-def install_bun(home, entry):
+def version_key(value):
+    try:
+        return tuple(int(part) for part in value.lstrip("v").split("."))
+    except (AttributeError, ValueError) as error:
+        raise ValueError("Expected a stable numeric memory runtime version") from error
+
+
+def previous_memory(home, entry):
+    """Ownership requires the activation receipt and an unedited immutable source."""
+    receipt = read_config(home / ".local/state/dotfiles/agent-apps.json").get("memory")
+    if receipt is None:
+        return None
+    required = {"version", "source", "runtime", "integrations", "health"}
+    if not isinstance(receipt, dict) or not required.issubset(receipt):
+        raise ValueError("Previous memory ownership receipt is incomplete")
+    previous = Path(receipt["source"])
+    if (
+        source_root(previous, home / ".local/share/dotfiles/skill-sources/claude-mem")
+        != previous.resolve()
+    ):
+        raise ValueError("Previous memory source receipt does not name its root")
+    actual_version = json.loads((previous / "plugin/package.json").read_text())[
+        "version"
+    ]
+    if (
+        actual_version != receipt["version"]
+        or receipt["health"].get("version") != actual_version
+        or receipt["health"].get("status") != "ok"
+    ):
+        raise ValueError("Previous memory ownership version is inconsistent")
+    if version_key(entry["version"]) < version_key(actual_version):
+        raise ValueError("Memory downgrades are not supported")
+    if not isinstance(receipt["integrations"], dict):
+        raise TypeError("Previous memory integrations receipt is invalid")
+    runtime = Path(receipt["runtime"])
+    allowed = [
+        Path(item["path"])
+        for key, item in receipt["integrations"].items()
+        if key in {"claude", "codex"} and isinstance(item, dict) and "path" in item
+    ]
+    allowed.append(home / ".local/share/dotfiles/memory-runtime" / previous.name)
+    if runtime not in allowed:
+        raise ValueError("Previous memory runtime is outside its owned integrations")
+    # Legacy activation receipts predate Bun hashes. Bootstrap only from the
+    # unchanged baseline catalog and its exact source artifact identity.
+    if not receipt.get("bun_sha256"):
+        baseline = json.loads(
+            (Path(__file__).resolve().parents[2] / "config/tools.lock.json").read_text()
+        )["skills"]["claude-mem"]
+        source_receipt = read_config(previous / ".dotfiles-source.json")
+        if (
+            baseline["version"] != actual_version
+            or baseline["revision"] != previous.name
+            or baseline["sha256"] != source_receipt.get("sha256")
+        ):
+            raise ValueError(
+                "Legacy Bun ownership cannot be proven from the baseline catalog"
+            )
+        receipt = {
+            **receipt,
+            "bun_sha256": baseline["bun"]["binary_sha256"],
+            "bun_version": baseline["bun"]["version"],
+        }
+    if receipt.get("bun_version") and version_key(
+        entry["bun"]["version"]
+    ) < version_key(receipt["bun_version"]):
+        raise ValueError("Bun downgrades are not supported")
+    return receipt
+
+
+def install_bun(home, entry, previous=None):
     target = home / ".local/bin/bun"
-    if target.is_file():
-        if hashlib.sha256(target.read_bytes()).hexdigest() == entry["binary_sha256"]:
-            return target
-        raise ValueError(
-            "Existing Bun differs from the pinned binary; retained for review"
-        )
     if target.is_symlink():
         raise ValueError("Existing Bun symlink retained for review")
+    if target.is_file():
+        digest = hashlib.sha256(target.read_bytes()).hexdigest()
+        if digest == entry["binary_sha256"]:
+            return target
+        if previous is None or digest != previous.get("bun_sha256"):
+            raise ValueError(
+                "Existing Bun differs from the pinned binary; retained for review"
+            )
     with zipfile.ZipFile(io.BytesIO(download(entry))) as archive:
         payload = verify_payload(archive.read(entry["member"]), entry["binary_sha256"])
     write_file(target, payload, 0o755)
     return target
 
 
-def native_plugins(home, selected, source, version):
-    """Let the CLIs create and own their plugin registries and cache directories."""
+def native_plugins(home, selected, source, version, previous=None):
+    """Verify ownership before asking each native CLI to replace its plugin."""
     roots, result = [], {}
-    if "claude" in selected:
-        cli = str(home / ".local/bin/claude")
-        identity = "claude-mem@thedotmack"
-        installed = json.loads(run([cli, "plugin", "list", "--json"]).stdout)
+    for app, identity, field, marketplace in (
+        ("claude", "claude-mem@thedotmack", "id", "thedotmack"),
+        ("codex", "claude-mem@claude-mem-local", "pluginId", "claude-mem-local"),
+    ):
+        if app not in selected:
+            continue
+        cli = str(home / ".local/bin" / app)
+
+        def installed_plugins(cli=cli, app=app):
+            value = json.loads(run([cli, "plugin", "list", "--json"]).stdout)
+            return value if app == "claude" else value["installed"]
+
+        installed = installed_plugins()
         matches = [
             item
             for item in installed
-            if item.get("id", "").split("@")[0] == "claude-mem"
+            if item.get(field, "").split("@")[0] == "claude-mem"
         ]
-        if matches and any(
-            item.get("id") != identity
-            or item.get("version") != version
-            or not item.get("enabled")
-            for item in matches
-        ):
-            raise ValueError(
-                "Existing Claude memory plugin differs from the pin; retained"
+        if len(matches) > 1:
+            raise ValueError("Multiple memory registrations retained for review")
+        if matches:
+            item = matches[0]
+            if item.get(field) != identity or item.get("enabled") is not True:
+                raise ValueError(
+                    f"Existing {app} memory plugin is foreign or disabled; retained"
+                )
+            registered_source = Path(
+                item.get("readFromFolder", "")
+                if app == "claude"
+                else item.get("source", {}).get("path", "")
             )
+            cache = (
+                Path(item.get("installPath", ""))
+                if app == "claude"
+                else home
+                / ".codex/plugins/cache/claude-mem-local/claude-mem"
+                / item["version"]
+            )
+            current = (
+                item.get("version") == version
+                and registered_source.resolve() == (source / "plugin").resolve()
+            )
+            if current:
+                verify_plugin_files(cache, source / "plugin")
+            else:
+                owned = (previous or {}).get("integrations", {}).get(app, {})
+                if (
+                    not previous
+                    or owned.get("plugin") != identity
+                    or owned.get("path") != str(cache)
+                    or item.get("version") != previous["version"]
+                    or registered_source.resolve()
+                    != (Path(previous["source"]) / "plugin").resolve()
+                ):
+                    raise ValueError(
+                        f"Existing {app} memory plugin differs from its ownership receipt; retained"
+                    )
+                verify_plugin_files(cache, Path(previous["source"]) / "plugin")
+                if app == "claude":
+                    run([cli, "plugin", "uninstall", identity, "--scope", "user"])
+                else:
+                    run([cli, "plugin", "remove", identity, "--json"])
+                run([cli, "plugin", "marketplace", "remove", marketplace])
+                matches = []
         if not matches:
-            run([cli, "plugin", "marketplace", "add", str(source)])
-            run([cli, "plugin", "install", identity, "--scope", "user"])
-            installed = json.loads(run([cli, "plugin", "list", "--json"]).stdout)
-        item = next(item for item in installed if item.get("id") == identity)
-        if (
-            Path(item.get("readFromFolder", "")).resolve()
-            != (source / "plugin").resolve()
-        ):
-            raise ValueError(
-                "Claude memory marketplace is not the managed pinned source"
+            run(
+                [
+                    cli,
+                    "plugin",
+                    "marketplace",
+                    "add",
+                    str(source),
+                    *(["--json"] if app == "codex" else []),
+                ]
             )
-        cache = Path(item["installPath"])
+            run(
+                [
+                    cli,
+                    "plugin",
+                    "install" if app == "claude" else "add",
+                    identity,
+                    *(["--scope", "user"] if app == "claude" else ["--json"]),
+                ]
+            )
+            installed = installed_plugins()
+        item = next(item for item in installed if item.get(field) == identity)
+        registered_source = Path(
+            item.get("readFromFolder", "")
+            if app == "claude"
+            else item.get("source", {}).get("path", "")
+        )
+        if (
+            item.get("version") != version
+            or item.get("enabled") is not True
+            or registered_source.resolve() != (source / "plugin").resolve()
+        ):
+            raise ValueError(f"{app} memory plugin is not the managed pinned source")
+        cache = (
+            Path(item["installPath"])
+            if app == "claude"
+            else home / ".codex/plugins/cache/claude-mem-local/claude-mem" / version
+        )
         verify_plugin_files(cache, source / "plugin")
         roots.append(cache)
-        result["claude"] = {"plugin": identity, "path": str(cache)}
-    if "codex" in selected:
-        cli = str(home / ".local/bin/codex")
-        identity = "claude-mem@claude-mem-local"
-        installed = json.loads(run([cli, "plugin", "list", "--json"]).stdout)[
-            "installed"
-        ]
-        matches = [
-            item
-            for item in installed
-            if item.get("pluginId", "").split("@")[0] == "claude-mem"
-        ]
-        if matches and any(
-            item.get("pluginId") != identity
-            or item.get("version") != version
-            or not item.get("enabled")
-            for item in matches
-        ):
-            raise ValueError(
-                "Existing Codex memory plugin differs from the pin; retained"
-            )
-        if not matches:
-            run([cli, "plugin", "marketplace", "add", str(source), "--json"])
-            run([cli, "plugin", "add", identity, "--json"])
-            installed = json.loads(run([cli, "plugin", "list", "--json"]).stdout)[
-                "installed"
-            ]
-        item = next(item for item in installed if item.get("pluginId") == identity)
-        if (
-            Path(item.get("source", {}).get("path", "")).resolve()
-            != (source / "plugin").resolve()
-        ):
-            raise ValueError("Codex memory plugin is not the managed pinned source")
-        cache = home / ".codex/plugins/cache/claude-mem-local/claude-mem" / version
-        verify_plugin_files(cache, source / "plugin")
-        roots.append(cache)
-        result["codex"] = {"plugin": identity, "path": str(cache)}
+        result[app] = {"plugin": identity, "path": str(cache)}
     return roots, result
 
 
-def configure_opencode(home, source, runtime):
+def configure_opencode(home, source, runtime, previous=None):
     path = home / ".config/opencode/opencode.json"
     if path.with_suffix(".jsonc").exists():
         raise ValueError("Existing OpenCode JSONC retained for review")
@@ -168,14 +275,24 @@ def configure_opencode(home, source, runtime):
     }
     mcp = data.get("mcp", {})
     if not isinstance(mcp, dict) or (
-        "claude-mem" in mcp and mcp["claude-mem"] != desired_mcp
+        "claude-mem" in mcp
+        and mcp["claude-mem"] != desired_mcp
+        and mcp["claude-mem"]
+        != (previous or {}).get("integrations", {}).get("opencode", {}).get("mcp")
     ):
         raise ValueError(
             "Existing OpenCode memory MCP configuration retained for review"
         )
     bundle = (source / "dist/opencode-plugin/index.js").read_bytes()
     destination = home / ".config/opencode/plugins/claude-mem.js"
-    if destination.exists() and destination.read_bytes() != bundle:
+    old_bundle = None
+    if previous and previous.get("integrations", {}).get("opencode", {}).get(
+        "plugin"
+    ) == str(destination):
+        old_bundle = (
+            Path(previous["source"]) / "dist/opencode-plugin/index.js"
+        ).read_bytes()
+    if destination.exists() and destination.read_bytes() not in (bundle, old_bundle):
         raise ValueError(
             "Existing OpenCode memory plugin has local differences; retained"
         )
@@ -256,8 +373,7 @@ def configure_port(home):
     return int(port)
 
 
-def configure_antigravity(home, runtime, bun, env):
-    hooks = read_config(home / ".gemini/config/hooks.json")
+def antigravity_hooks(runtime):
     expected_events = {
         "SessionStart": "context",
         "PreInvocation": "session-init",
@@ -275,12 +391,24 @@ def configure_antigravity(home, runtime, bun, env):
         expected[event] = (
             [{"matcher": "*", "hooks": [item]}] if event == "PostToolUse" else [item]
         )
+    return expected
+
+
+def configure_antigravity(home, runtime, bun, env, previous=None):
+    hooks = read_config(home / ".gemini/config/hooks.json")
+    expected = antigravity_hooks(runtime)
+    old_runtime = (
+        Path(previous["runtime"])
+        if previous and "antigravity" in previous.get("integrations", {})
+        else None
+    )
+    old_hooks = antigravity_hooks(old_runtime) if old_runtime else None
     desired_mcp = {
         "command": str(bun),
         "args": [str(runtime / "scripts/mcp-server.cjs")],
     }
     complete = hooks.get("claude-mem") == expected
-    if "claude-mem" in hooks and not complete:
+    if "claude-mem" in hooks and not complete and hooks["claude-mem"] != old_hooks:
         raise ValueError(
             "Existing Antigravity memory hooks differ; retained for review"
         )
@@ -291,7 +419,19 @@ def configure_antigravity(home, runtime, bun, env):
         servers = read_config(home / suffix).get("mcpServers", {})
         if not isinstance(servers, dict):
             raise TypeError("Antigravity mcpServers must be a JSON object")
-        if "claude-mem" in servers and servers["claude-mem"] != desired_mcp:
+        if (
+            "claude-mem" in servers
+            and servers["claude-mem"] != desired_mcp
+            and servers["claude-mem"]
+            != (
+                {
+                    "command": str(bun),
+                    "args": [str(old_runtime / "scripts/mcp-server.cjs")],
+                }
+                if old_runtime
+                else None
+            )
+        ):
             raise ValueError(
                 "Existing Antigravity memory MCP differs; retained for review"
             )
@@ -308,7 +448,21 @@ def configure_antigravity(home, runtime, bun, env):
         )
 
 
-def configure_service(home, runtime):
+def service_unit(home, runtime):
+    return (
+        "# Managed by dotfiles memory_runtime.py\n"
+        "[Unit]\nDescription=Claude Mem local memory worker\nAfter=network.target\n"
+        "[Service]\nType=simple\n"
+        f'Environment="PATH={home}/.local/bin:/usr/local/bin:/usr/bin:/bin"\n'
+        f'Environment="CLAUDE_PLUGIN_ROOT={runtime}"\n'
+        f"WorkingDirectory={home}\n"
+        f"ExecStart={home}/.local/bin/bun {runtime}/scripts/worker-service.cjs --daemon\n"
+        "Restart=on-failure\nRestartSec=5\nTimeoutStopSec=30\n"
+        "[Install]\nWantedBy=default.target\n"
+    )
+
+
+def configure_service(home, runtime, restart=False, previous_runtime=None):
     # WSL --exec does not open a PAM login, so initialize the user bus explicitly.
     uid = os.getuid()
     env = {
@@ -360,26 +514,17 @@ def configure_service(home, runtime):
             run(["sudo", "-n", "systemctl", "daemon-reload"])
     run(["sudo", "-n", "loginctl", "enable-linger", getpass.getuser()])
     run(["sudo", "-n", "systemctl", "start", f"user@{uid}.service"])
-    unit = (
-        "# Managed by dotfiles memory_runtime.py\n"
-        "[Unit]\nDescription=Claude Mem local memory worker\nAfter=network.target\n"
-        "[Service]\nType=simple\n"
-        f'Environment="PATH={home}/.local/bin:/usr/local/bin:/usr/bin:/bin"\n'
-        f'Environment="CLAUDE_PLUGIN_ROOT={runtime}"\n'
-        f"WorkingDirectory={home}\n"
-        f"ExecStart={home}/.local/bin/bun {runtime}/scripts/worker-service.cjs --daemon\n"
-        "Restart=on-failure\nRestartSec=5\nTimeoutStopSec=30\n"
-        "[Install]\nWantedBy=default.target\n"
-    )
+    unit = service_unit(home, runtime)
     path = home / ".config/systemd/user/claude-mem.service"
-    if path.exists() and not path.read_text().startswith(
-        "# Managed by dotfiles memory_runtime.py\n"
+    if path.exists() and path.read_text() not in (
+        unit,
+        service_unit(home, previous_runtime) if previous_runtime else None,
     ):
         raise ValueError("Existing memory service is not dotfiles managed; retained")
     changed = write_file(path, unit.encode())
     run(["systemctl", "--user", "daemon-reload"], env=env)
     run(["systemctl", "--user", "enable", "--now", "claude-mem.service"], env=env)
-    if changed:
+    if changed or restart:
         run(["systemctl", "--user", "restart", "claude-mem.service"], env=env)
     return env
 
@@ -406,14 +551,21 @@ def configure_memory(home, selected, source, entry):
     home, source = Path(home), Path(source)
     if home.resolve() != Path.home().resolve():
         raise ValueError("Memory activation must run as the actual target user")
+    previous = previous_memory(home, entry)
+    bun_path = home / ".local/bin/bun"
+    bun_changed = (
+        bun_path.is_file()
+        and hashlib.sha256(bun_path.read_bytes()).hexdigest()
+        != entry["bun"]["binary_sha256"]
+    )
     protect_wsl_interop()
     port = configure_port(home)
-    bun = install_bun(home, entry["bun"])
+    bun = install_bun(home, entry["bun"], previous)
     env = {
         **os.environ,
         "PATH": str(home / ".local/bin") + ":" + os.environ.get("PATH", ""),
     }
-    roots, result = native_plugins(home, selected, source, entry["version"])
+    roots, result = native_plugins(home, selected, source, entry["version"], previous)
     if not roots:
         # A mutable runtime for other apps, separate from the immutable source vault.
         runtime = home / ".local/share/dotfiles/memory-runtime" / entry["revision"]
@@ -449,14 +601,20 @@ def configure_memory(home, selected, source, entry):
     if not (home / ".local/bin/claude-mem").is_file():
         raise ValueError("Official memory launcher was not installed")
     if "opencode" in selected:
-        result["opencode"] = configure_opencode(home, source, runtime)
+        result["opencode"] = configure_opencode(home, source, runtime, previous)
     if "antigravity" in selected:
-        configure_antigravity(home, runtime, bun, env)
+        configure_antigravity(home, runtime, bun, env, previous)
         result["antigravity"] = {
             "integration": "official hooks and MCP",
             "hooks": str(home / ".gemini/config/hooks.json"),
         }
-    service_env = configure_service(home, runtime)
+    service_env = configure_service(
+        home,
+        runtime,
+        restart=bun_changed
+        or bool(previous and previous["bun_sha256"] != entry["bun"]["binary_sha256"]),
+        previous_runtime=Path(previous["runtime"]) if previous else None,
+    )
     # The default fresh worker uses the standard loopback port. Preserve a custom port.
     health = wait_for_health(port)
     main_pid = run(
@@ -482,6 +640,8 @@ def configure_memory(home, selected, source, entry):
     )
     return {
         "version": entry["version"],
+        "bun_sha256": entry["bun"]["binary_sha256"],
+        "bun_version": entry["bun"]["version"],
         "source": str(source),
         "runtime": str(runtime),
         "integrations": result,

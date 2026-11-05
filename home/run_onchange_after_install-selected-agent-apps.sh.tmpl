@@ -8,6 +8,7 @@
 # shared skills: {{ include "../scripts/provision/shared_skills.py" | sha256sum }}
 # runtime skills: {{ include "../scripts/provision/runtime_skills.py" | sha256sum }}
 # memory: {{ include "../scripts/provision/memory_runtime.py" | sha256sum }}
+# update owners: {{ include "../scripts/provision/update_owners.py" | sha256sum }}
 set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
 python3 -B "{{ .chezmoi.sourceDir }}/../scripts/install-agent-apps" --apply --from-chezmoi

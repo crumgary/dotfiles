@@ -60,21 +60,22 @@ Each overlay has the same shape:
 
 ## Shared agent instructions
 
-One canonical instruction file, `~/.config/agents/AGENTS.md`, is symlinked into
-the global location each AI coding agent reads, so all of them share the same
-rules and you edit them in one place:
+One canonical instruction file, `~/.config/agents/AGENTS.md`, supplies the global
+rules for each AI coding agent. Edit the shared rules in one place:
 
 | Tool | Reads | Managed as |
 |---|---|---|
 | Claude Code | `~/.claude/CLAUDE.md` | symlink → `~/.config/agents/AGENTS.md` |
-| Codex | `~/.codex/AGENTS.md` | symlink → same |
+| Codex | `~/.codex/AGENTS.md` | generated shared rules plus its RTK reference |
+| OpenCode | `~/.config/opencode/AGENTS.md` | symlink to shared rules when selected |
 | Antigravity (`agy`) | `~/.gemini/AGENTS.md` | symlink → same |
 | Pi | `~/.pi/agent/AGENTS.md` | symlink → same |
 
 Claude Code reads `CLAUDE.md` (not `AGENTS.md`), so its symlink is named
-accordingly; the others use the cross-tool `AGENTS.md` name. The symlinks are
-created by chezmoi even when a tool isn't installed yet, so a fresh machine is
-ready the moment you add one. Not deployed on the `embedded` profile.
+accordingly. Codex gets a generated file so its RTK setup cannot modify the
+shared source. OpenCode's adapter is installed with the selected-app setup.
+The other instruction links are created by chezmoi on full profiles.
+These instructions are not deployed on the `embedded` profile.
 
 When the personal and work overlays are enabled, their `agents/AGENTS.md` files
 are included conditionally by the shared template. This keeps machine-specific
@@ -97,13 +98,28 @@ These are pure navigation aids - editing through a shortcut is identical to
 editing the real repo. Only overlays you actually installed are linked. Change
 the directory (or turn it off) any time with `chezmoi edit-config`.
 
-## Pull updates
+## Configuration and tool updates
 
 ```bash
 chezmoi update     # git pull + apply
 chezmoi diff       # preview before applying
 chezmoi edit-config # change profile / work flag / etc.
 ```
+
+With the developer bundle enabled, update tools separately:
+
+```console
+dotfiles-update --check                  # discover newer stable releases
+dotfiles-update --apply                  # install, validate, then save the catalog
+dotfiles-update --apply --only opencode  # advance one tool
+dotfiles-update --apply --commit --push  # also publish the tested catalog
+```
+
+Ubuntu packages follow their configured apt repositories and normal security
+updates. Node stays on the chosen LTS major. Other tool versions, artifact hashes
+and skill revisions are refreshed automatically. Selected AI apps use this
+updater as their update owner. Failed updates retain a frozen candidate: rerun
+the same command to resume. See [version and update policy](docs/provisioning/tool-updates.md).
 
 ## Machine inventory and read-only doctor
 
@@ -125,5 +141,6 @@ MIT.
 ## Optional developer tools
 
 Enable `install_developer_tools` to add the [declared developer-tool bundle](docs/provisioning/developer-tools.md)
-and stage pinned tstack/Superpowers sources. App-specific activation and logins
-remain separate from installation.
+and stage the declared shared skill sources. Select Claude Code, Codex,
+OpenCode and/or Antigravity at init for their app and skill integrations.
+Provider logins remain separate from installation.

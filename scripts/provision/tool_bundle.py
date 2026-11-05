@@ -6,6 +6,7 @@ import io
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import tarfile
@@ -84,26 +85,37 @@ def write_system(path, data):
     return True
 
 
-def install_apt(lock):
+def install_apt(lock, upgrade=()):
     required = []
-    for name, version in lock["apt"].items():
+    upgrade = set(upgrade)
+    if upgrade - set(lock["apt"]):
+        raise ValueError("Unknown apt upgrade selection")
+    for name, baseline in lock["apt"].items():
         result = subprocess.run(
             ["dpkg-query", "-W", "-f=${db:Status-Status}|${Version}", name],
             text=True,
             capture_output=True,
             check=False,
         )
-        if result.returncode == 0 and result.stdout.startswith("installed|"):
-            actual = result.stdout.partition("|")[2]
-            newer = subprocess.run(
-                ["dpkg", "--compare-versions", actual, "gt", version], check=False
-            )
-            if newer.returncode == 0:
+        installed = result.returncode == 0 and result.stdout.startswith("installed|")
+        actual = result.stdout.partition("|")[2] if installed else None
+        if name == "nodejs" and actual:
+            current = re.match(r"(?:\d+:)?(\d+)\.", actual)
+            major = lock.get("runtime_major", int(baseline.split(".")[0]))
+            if not current or int(current[1]) > major:
                 raise ValueError(
-                    f"{name} is newer than the lock; update the lock or explicitly reconcile it. Automatic downgrade is disabled"
+                    "System Node is outside the chosen LTS major; automatic downgrade is disabled"
                 )
-        if result.returncode or result.stdout != "installed|" + version:
-            required.append(name + "=" + version)
+        # Values are tested baselines. Newer distro/security updates are valid.
+        older = (
+            installed
+            and subprocess.run(
+                ["dpkg", "--compare-versions", actual, "lt", baseline], check=False
+            ).returncode
+            == 0
+        )
+        if not installed or older or name in upgrade:
+            required.append(name)
     changed = False
     for name, entry in lock["repositories"].items():
         key = Path("/etc/apt/keyrings") / f"dotfiles-{name}.{entry['format']}"
@@ -135,6 +147,39 @@ def install_apt(lock):
                 *required,
             ]
         )
+
+
+def validate_binary_ownership(home, entries, approved):
+    receipt = home / ".local/state/dotfiles/developer-tools.json"
+    previous = json.loads(receipt.read_text()) if receipt.is_file() else {}
+    hashes = dict(previous.get("binary_hashes", {}))
+    for name, entry in approved.get("binaries", {}).items():
+        if (
+            name not in hashes
+            and previous.get("tools", {}).get(name) == entry["version"]
+        ):
+            hashes[name] = entry["binary_sha256"]
+    for name, entry in entries.items():
+        old_version = previous.get("tools", {}).get(name)
+        if old_version:
+            old = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", old_version)
+            desired = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", entry["version"])
+            if (
+                not old
+                or not desired
+                or tuple(map(int, old.groups())) > tuple(map(int, desired.groups()))
+            ):
+                raise ValueError(
+                    f"{name} is newer than this catalog; automatic downgrade is disabled"
+                )
+        binary = home / ".local/bin" / name
+        if binary.exists() and hashlib.sha256(binary.read_bytes()).hexdigest() not in {
+            entry["binary_sha256"],
+            hashes.get(name),
+        }:
+            raise ValueError(
+                f"{name} binary has unknown or edited contents; retained for review"
+            )
 
 
 def install_binary(home, name, entry):
@@ -208,6 +253,18 @@ def install_npm(home, packages):
             actual = json.loads(path.read_text())["version"]
         except (OSError, ValueError, KeyError):
             actual = None
+        if actual and actual != version:
+            actual_version = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", actual)
+            desired_version = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", version)
+            if (
+                not actual_version
+                or not desired_version
+                or tuple(map(int, actual_version.groups()))
+                > tuple(map(int, desired_version.groups()))
+            ):
+                raise ValueError(
+                    f"{name} is newer or outside the stable catalog; use the updater instead of downgrading"
+                )
         if actual != version or not (prefix / "bin" / name).exists():
             required.append(name + "@" + version)
     if required:
@@ -270,10 +327,24 @@ def main():
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--apply", action="store_true")
     parser.add_argument("--home", type=Path, default=Path.home())
+    parser.add_argument(
+        "--catalog",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "config/tools.lock.json",
+    )
+    parser.add_argument(
+        "--upgrade-apt",
+        default="",
+        help="explicit comma-separated managed apt packages to upgrade",
+    )
     args = parser.parse_args()
-    lock_path = Path(__file__).resolve().parents[2] / "config/tools.lock.json"
+    lock_path = args.catalog
     catalog = json.loads(lock_path.read_text())
-    lock = {**catalog["developer"], "skills": catalog["skills"]}
+    lock = {
+        **catalog["developer"],
+        "skills": catalog["skills"],
+        "runtime_major": catalog["runtime_major"],
+    }
     tools = {
         **lock["apt"],
         **{name: entry["version"] for name, entry in lock["binaries"].items()},
@@ -298,7 +369,11 @@ def main():
             )
         require_supported_host()
         run(["sudo", "-n", "true"])
-        install_apt(lock)
+        approved = json.loads(
+            (Path(__file__).resolve().parents[2] / "config/tools.lock.json").read_text()
+        )["developer"]
+        validate_binary_ownership(args.home, lock["binaries"], approved)
+        install_apt(lock, [name for name in args.upgrade_apt.split(",") if name])
         for name, entry in lock["binaries"].items():
             install_binary(args.home, name, entry)
         install_npm(args.home, lock["npm"])
@@ -312,6 +387,15 @@ def main():
         receipt = {
             "manifest_sha256": hashlib.sha256(lock_path.read_bytes()).hexdigest(),
             "tools": tools,
+            "binary_hashes": {
+                name: entry["binary_sha256"] for name, entry in lock["binaries"].items()
+            },
+            "apt_installed": {
+                name: subprocess.check_output(
+                    ["dpkg-query", "-W", "-f=${Version}", name], text=True
+                )
+                for name in lock["apt"]
+            },
             "skill_sources": sources,
             "activation": "staged only",
         }

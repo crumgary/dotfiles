@@ -23,6 +23,12 @@ from provision.tool_bundle import (
     run,
     stage_skills,
 )
+from provision.update_owners import (
+    configure_update_owners,
+    native_binary,
+    prepare_native_app,
+    wrapper_hashes,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -47,7 +53,7 @@ def app_version(home, command):
 
 
 def install_app(home, name, entry):
-    binary = home / ".local/bin" / entry["command"]
+    binary = prepare_native_app(home, name, entry)
     native_matches = True
     if entry["kind"] in {"native", "claude-native"}:
         native_matches = False
@@ -96,7 +102,7 @@ def install_app(home, name, entry):
             installer.chmod(0o755)
             run([str(installer), "install", entry["version"]])
     elif entry["kind"] == "native":
-        install_binary(home, entry["command"], entry["artifact"])
+        install_binary(home, binary.name, entry["artifact"])
     else:
         raise ValueError("Unsupported app acquisition kind")
     if (
@@ -122,8 +128,9 @@ def main():
         help="read the selected app list from local chezmoi data",
     )
     parser.add_argument("--home", type=Path, default=Path.home())
+    parser.add_argument("--catalog", type=Path, default=ROOT / "config/tools.lock.json")
     args = parser.parse_args()
-    lock = json.loads((ROOT / "config/tools.lock.json").read_text())
+    lock = json.loads(args.catalog.read_text())
     if bool(args.apps) == args.from_chezmoi:
         parser.error("Use --apps or --from-chezmoi, exclusively.")
     if args.from_chezmoi:
@@ -161,6 +168,7 @@ def main():
         for name, entry in selected.items():
             print("Installing/verifying " + name, flush=True)
             install_app(args.home, name, entry)
+        configure_update_owners(args.home, selected)
         source_lock = lock
         sources = {
             name: Path(stage_skills(args.home, name, entry))
@@ -186,9 +194,7 @@ def main():
             "shared_skills": shared_skills,
             "memory": memory,
             "schema_version": 1,
-            "manifest_sha256": hashlib.sha256(
-                (ROOT / "config/tools.lock.json").read_bytes()
-            ).hexdigest(),
+            "manifest_sha256": hashlib.sha256(args.catalog.read_bytes()).hexdigest(),
             "runtime": runtime,
             "apps": {
                 name: app_version(args.home, entry["command"])
@@ -199,9 +205,10 @@ def main():
             "superpowers_version": json.loads(
                 (sources["superpowers"] / ".claude-plugin/plugin.json").read_text()
             )["version"],
+            "native_wrapper_hashes": wrapper_hashes(args.home, selected),
             "native_hashes": {
                 name: hashlib.sha256(
-                    (args.home / ".local/bin" / entry["command"]).read_bytes()
+                    native_binary(args.home, entry).read_bytes()
                 ).hexdigest()
                 for name, entry in selected.items()
                 if entry["kind"] in {"native", "claude-native"}

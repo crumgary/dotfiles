@@ -116,7 +116,7 @@ class BundleTests(unittest.TestCase):
             )
             self.assertEqual(binary.stat().st_mode & 0o777, 0o755)
 
-    def test_newer_apt_package_is_an_explicit_conflict_without_downgrade(self):
+    def test_newer_apt_security_update_is_retained_without_downgrade(self):
         module = self.load_module()
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -127,10 +127,7 @@ class BundleTests(unittest.TestCase):
             sudo = root / "sudo"
             sudo.write_text('#!/bin/sh\ntouch "' + str(marker) + '"\nexit 88\n')
             sudo.chmod(0o755)
-            with (
-                patch.dict(os.environ, {"PATH": str(root) + ":/usr/bin:/bin"}),
-                self.assertRaisesRegex(ValueError, "newer"),
-            ):
+            with patch.dict(os.environ, {"PATH": str(root) + ":/usr/bin:/bin"}):
                 module.install_apt({"repositories": {}, "apt": {"gh": "2.103.3"}})
             self.assertFalse(marker.exists())
 
@@ -156,3 +153,62 @@ class BundleTests(unittest.TestCase):
             self.assertEqual(
                 (destination / "skills/example/SKILL.md").read_bytes(), b"skill"
             )
+
+    def test_legacy_binary_receipt_bootstraps_upgrade_from_approved_catalog(self):
+        module = self.load_module()
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            binary = home / ".local/bin/example"
+            binary.parent.mkdir(parents=True)
+            binary.write_bytes(b"old verified release")
+            old_digest = hashlib.sha256(binary.read_bytes()).hexdigest()
+            receipt = home / ".local/state/dotfiles/developer-tools.json"
+            receipt.parent.mkdir(parents=True)
+            receipt.write_text(json.dumps({"tools": {"example": "1.0.0"}}))
+            approved = {
+                "binaries": {
+                    "example": {"version": "1.0.0", "binary_sha256": old_digest}
+                }
+            }
+            entries = {
+                "example": {
+                    "version": "1.1.0",
+                    "binary_sha256": hashlib.sha256(b"new release").hexdigest(),
+                }
+            }
+            module.validate_binary_ownership(home, entries, approved)
+            release = home / "new-release"
+            release.write_bytes(b"new release")
+            entry = {
+                **entries["example"],
+                "format": "raw",
+                "url": release.as_uri(),
+                "sha256": hashlib.sha256(release.read_bytes()).hexdigest(),
+            }
+            module.install_binary(home, "example", entry)
+            self.assertEqual(binary.read_bytes(), b"new release")
+            binary.write_bytes(b"local modification")
+            with self.assertRaisesRegex(ValueError, "unknown or edited"):
+                module.validate_binary_ownership(home, entries, approved)
+            self.assertEqual(binary.read_bytes(), b"local modification")
+
+    def test_old_catalog_does_not_downgrade_owned_newer_binary(self):
+        module = self.load_module()
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            receipt = home / ".local/state/dotfiles/developer-tools.json"
+            receipt.parent.mkdir(parents=True)
+            receipt.write_text(
+                json.dumps(
+                    {
+                        "tools": {"example": "2.0.0"},
+                        "binary_hashes": {"example": "0" * 64},
+                    }
+                )
+            )
+            with self.assertRaisesRegex(ValueError, "downgrade"):
+                module.validate_binary_ownership(
+                    home,
+                    {"example": {"version": "1.0.0", "binary_sha256": "1" * 64}},
+                    {"binaries": {}},
+                )

@@ -138,3 +138,169 @@ class MemoryRuntimeTests(unittest.TestCase):
                     memory.write_system_owned(path, "managed")
                 run.assert_not_called()
             self.assertEqual("custom", path.read_text())
+
+    def test_owned_bun_upgrade_and_retry_preserve_unknown_binary(self):
+        import hashlib
+        import io
+        import zipfile
+
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            bun = home / ".local/bin/bun"
+            bun.parent.mkdir(parents=True)
+            bun.write_bytes(b"old")
+            old_hash = hashlib.sha256(b"old").hexdigest()
+            new_hash = hashlib.sha256(b"new").hexdigest()
+            entry = {"binary_sha256": new_hash, "member": "bun"}
+            payload = io.BytesIO()
+            with zipfile.ZipFile(payload, "w") as archive:
+                archive.writestr("bun", b"new")
+            with patch.object(
+                memory, "download", return_value=payload.getvalue()
+            ) as download:
+                memory.install_bun(home, entry, {"bun_sha256": old_hash})
+                self.assertEqual(b"new", bun.read_bytes())
+                memory.install_bun(home, entry, {"bun_sha256": old_hash})
+                self.assertEqual(1, download.call_count)
+                bun.write_bytes(b"edited")
+                with self.assertRaises(ValueError):
+                    memory.install_bun(home, entry, {"bun_sha256": old_hash})
+                self.assertEqual(b"edited", bun.read_bytes())
+
+    def test_opencode_upgrades_only_exact_owned_bundle_and_mcp(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            old, new = home / "old", home / "new"
+            for source in (old, new):
+                path = source / "dist/opencode-plugin/index.js"
+                path.parent.mkdir(parents=True)
+                path.write_text(source.name)
+            integration = memory.configure_opencode(home, old, home / "old-runtime")
+            previous = {"source": str(old), "integrations": {"opencode": integration}}
+            memory.configure_opencode(home, new, home / "new-runtime", previous)
+            destination = Path(integration["plugin"])
+            self.assertEqual(b"new", destination.read_bytes())
+            memory.configure_opencode(home, new, home / "new-runtime", previous)
+            destination.write_bytes(b"edited")
+            with self.assertRaises(ValueError):
+                memory.configure_opencode(home, new, home / "new-runtime", previous)
+            self.assertEqual(b"edited", destination.read_bytes())
+
+    def test_service_restarts_after_bun_upgrade_even_with_unchanged_runtime(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            with (
+                patch.dict(memory.os.environ, {}, clear=True),
+                patch.object(memory, "run") as run,
+            ):
+                memory.configure_service(home, home / "runtime")
+                run.reset_mock()
+                memory.configure_service(home, home / "runtime", restart=True)
+                self.assertIn(
+                    ["systemctl", "--user", "restart", "claude-mem.service"],
+                    [call.args[0] for call in run.call_args_list],
+                )
+                path = home / ".config/systemd/user/claude-mem.service"
+                path.write_text(path.read_text() + "# owner edit\n")
+                with self.assertRaises(ValueError):
+                    memory.configure_service(
+                        home, home / "new-runtime", previous_runtime=home / "runtime"
+                    )
+                self.assertTrue(path.read_text().endswith("# owner edit\n"))
+
+    def test_native_plugin_upgrade_verifies_old_cache_and_uses_native_commands(self):
+        from types import SimpleNamespace
+
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            old, new = home / "old", home / "new"
+            cache = home / "cache"
+            cache.mkdir()
+            for source in (old, new):
+                (source / "plugin").mkdir(parents=True)
+                (source / "plugin/package.json").write_text(source.name)
+            (cache / "package.json").write_text("old")
+            previous = {
+                "source": str(old),
+                "version": "1.0.0",
+                "integrations": {
+                    "claude": {"plugin": "claude-mem@thedotmack", "path": str(cache)}
+                },
+            }
+            state = [
+                {
+                    "id": "claude-mem@thedotmack",
+                    "version": "1.0.0",
+                    "enabled": True,
+                    "readFromFolder": str(old / "plugin"),
+                    "installPath": str(cache),
+                }
+            ]
+
+            def command(argv):
+                if argv[1:3] == ["plugin", "list"]:
+                    return SimpleNamespace(stdout=json.dumps(state))
+                if argv[1:3] == ["plugin", "install"]:
+                    state[0].update(version="2.0.0", readFromFolder=str(new / "plugin"))
+                    (cache / "package.json").write_text("new")
+                return SimpleNamespace(stdout="")
+
+            with patch.object(memory, "run", side_effect=command) as run:
+                memory.native_plugins(home, ["claude"], new, "2.0.0", previous)
+                commands = [call.args[0] for call in run.call_args_list]
+                self.assertIn(
+                    [
+                        str(home / ".local/bin/claude"),
+                        "plugin",
+                        "uninstall",
+                        "claude-mem@thedotmack",
+                        "--scope",
+                        "user",
+                    ],
+                    commands,
+                )
+                run.reset_mock()
+                memory.native_plugins(home, ["claude"], new, "2.0.0", previous)
+                self.assertFalse(
+                    any(call.args[0][2] == "uninstall" for call in run.call_args_list)
+                )
+                state[0].update(version="1.0.0", readFromFolder=str(old / "plugin"))
+                (cache / "package.json").write_text("edited")
+                run.reset_mock()
+                with self.assertRaises(ValueError):
+                    memory.native_plugins(home, ["claude"], new, "2.0.0", previous)
+                self.assertEqual(1, run.call_count)
+
+    def test_previous_receipt_requires_immutable_source_and_rejects_downgrades(self):
+        from provision.tool_bundle import tree_digest
+
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            source = home / ".local/share/dotfiles/skill-sources/claude-mem/revision"
+            (source / "plugin").mkdir(parents=True)
+            package = source / "plugin/package.json"
+            package.write_text('{"version":"2.0.0"}')
+            (source / ".dotfiles-source.json").write_text(
+                json.dumps({"tree": tree_digest(source)})
+            )
+            receipt = {
+                "version": "2.0.0",
+                "source": str(source),
+                "runtime": str(home / ".local/share/dotfiles/memory-runtime/revision"),
+                "integrations": {},
+                "health": {"version": "2.0.0", "status": "ok"},
+                "bun_sha256": "owned",
+                "bun_version": "1.4.0",
+            }
+            path = home / ".local/state/dotfiles/agent-apps.json"
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({"memory": receipt}))
+            candidate = {"version": "3.0.0", "bun": {"version": "1.4.1"}}
+            self.assertEqual(receipt, memory.previous_memory(home, candidate))
+            with self.assertRaisesRegex(ValueError, "downgrades"):
+                memory.previous_memory(home, {**candidate, "version": "1.0.0"})
+            with self.assertRaisesRegex(ValueError, "downgrades"):
+                memory.previous_memory(home, {**candidate, "bun": {"version": "1.3.0"}})
+            package.write_text('{"version":"edited"}')
+            with self.assertRaisesRegex(ValueError, "local edits"):
+                memory.previous_memory(home, candidate)

@@ -61,10 +61,11 @@ python3 -B ~/.local/share/chezmoi/scripts/install-agent-apps --dry-run --from-ch
 ```
 
 Both installers read one catalog. Source pins and unknown existing customizations
-are checked before replacement. Edit declared pins intentionally and verify the
-result before publishing an update. Npm/Python top-level package versions are
+are checked before replacement. Use `dotfiles-update --check` and `dotfiles-update --apply` to discover,
+install and validate newer releases before publishing the tested catalog. Npm/Python top-level package versions are
 pinned; their transitive dependencies are not a complete reproducible-build lock.
-Native memory plugin/Bun upgrades currently require explicit reconciliation.
+Owned native memory plugin/Bun upgrades are supported by the explicit
+[tool update workflow](tool-updates.md); modified or unknown content is retained.
 
 ## Worker and WSL behavior
 
