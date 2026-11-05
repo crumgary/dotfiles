@@ -519,6 +519,20 @@ class DoctorTests(unittest.TestCase):
             "matching",
         )
 
+    def test_selected_apps_imply_tool_prerequisites_in_inventory(self):
+        self.config.write_text(
+            self.config.read_text()
+            + 'install_developer_tools=false\nagent_apps=["codex"]\n'
+        )
+        result = self.run_cli("--import-current", "--id", "my-wsl", "--owner", "local")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.record.write_text(result.stdout)
+        findings = self.doctor()
+        self.assertEqual(
+            self.finding(findings, "selection:install_developer_tools")["status"],
+            "matching",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

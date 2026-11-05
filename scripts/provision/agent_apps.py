@@ -1,14 +1,11 @@
 """Selected app acquisition and conflict-safe adapters for versioned skills."""
 
-import argparse
 import hashlib
 import json
 import os
 import re
 import subprocess
-import sys
 import tempfile
-import tomllib
 from pathlib import Path
 
 from provision.memory_runtime import configure_memory
@@ -19,9 +16,7 @@ from provision.skill_adapters import activate_tstack, register_superpowers
 from provision.tool_bundle import (
     download,
     install_binary,
-    require_supported_host,
     run,
-    stage_skills,
 )
 from provision.update_owners import (
     configure_update_owners,
@@ -116,134 +111,58 @@ def install_app(home, name, entry):
         raise ValueError(f"{name} installation did not verify at the declared version")
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--dry-run", action="store_true")
-    mode.add_argument("--apply", action="store_true")
-    parser.add_argument("--apps", help="comma-separated explicit app names")
-    parser.add_argument(
-        "--from-chezmoi",
-        action="store_true",
-        help="read the selected app list from local chezmoi data",
-    )
-    parser.add_argument("--home", type=Path, default=Path.home())
-    parser.add_argument("--catalog", type=Path, default=ROOT / "config/tools.lock.json")
-    args = parser.parse_args()
-    lock = json.loads(args.catalog.read_text())
-    if bool(args.apps) == args.from_chezmoi:
-        parser.error("Use --apps or --from-chezmoi, exclusively.")
-    if args.from_chezmoi:
-        try:
-            data = tomllib.loads(
-                (args.home / ".config/chezmoi/chezmoi.toml").read_text()
-            )
-            names = data.get("data", {}).get("agent_apps", [])
-        except (OSError, ValueError):
-            parser.error("Cannot read selected apps from chezmoi TOML.")
-    else:
-        names = args.apps.split(",")
-    if not isinstance(names, list) or any(not isinstance(name, str) for name in names):
-        parser.error("Selected apps must be a list of app names.")
-    if not names or len(names) != len(set(names)) or set(names) - set(lock["agents"]):
-        parser.error("Select unique names from claude,codex,opencode,antigravity.")
+def configure_apps(home, lock, catalog_path, names, sources):
+    """Install selected tools and configure their skills, plugins and runtime."""
     selected = {name: lock["agents"][name] for name in names}
-    if args.dry_run:
-        print(
-            json.dumps(
-                {"runtime_major": lock["runtime_major"], "apps": selected}, indent=2
-            )
-        )
-        return 0
-    try:
-        if args.home.resolve() != Path.home().resolve():
-            raise ValueError("Apply must run as the actual target user")
-        require_supported_host()
-        runtime = subprocess.check_output(["node", "--version"], text=True).strip()
-        if not runtime.startswith("v" + str(lock["runtime_major"]) + "."):
-            raise ValueError("Install the declared Node26 developer bundle first")
-        os.environ["PATH"] = (
-            str(args.home / ".local/bin") + ":" + os.environ.get("PATH", "")
-        )
-        for name, entry in selected.items():
-            print("Installing/verifying " + name, flush=True)
-            install_app(args.home, name, entry)
-        configure_update_owners(args.home, selected)
-        source_lock = lock
-        sources = {
-            name: Path(stage_skills(args.home, name, entry))
-            for name, entry in source_lock["skills"].items()
-        }
-        skills = activate_tstack(args.home, selected, sources["tstack"])
-        shared_skills = activate_shared_skills(
-            args.home, selected, sources, source_lock["skills"]
-        )
-        configure_runtime_skills(
-            args.home, selected, source_lock["developer"]["python"]
-        )
-        memory = configure_memory(
-            args.home,
-            selected,
-            sources["claude-mem"],
-            source_lock["skills"]["claude-mem"],
-        )
-        plugins = register_superpowers(args.home, selected, sources["superpowers"])
-        rtk = configure_rtk(args.home, selected)
-        receipt = {
-            "rtk": rtk,
-            "shared_skills": shared_skills,
-            "memory": memory,
-            "schema_version": 1,
-            "manifest_sha256": hashlib.sha256(args.catalog.read_bytes()).hexdigest(),
-            "runtime": runtime,
-            "apps": {
-                name: app_version(args.home, entry["command"])
-                for name, entry in selected.items()
-            },
-            "tstack_skills": skills,
-            "skill_sources": {name: str(path) for name, path in sources.items()},
-            "superpowers_version": json.loads(
-                (sources["superpowers"] / ".claude-plugin/plugin.json").read_text()
-            )["version"],
-            "native_wrapper_hashes": wrapper_hashes(args.home, selected),
-            "native_hashes": {
-                name: hashlib.sha256(
-                    native_binary(args.home, entry).read_bytes()
-                ).hexdigest()
-                for name, entry in selected.items()
-                if entry["kind"] in {"native", "claude-native"}
-            },
-            "authentication": "separate user login required",
-        }
-        path = args.home / ".local/state/dotfiles/agent-apps.json"
-        text = json.dumps(receipt, indent=2) + "\n"
-        if not path.is_file() or path.read_text() != text:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text)
-        print(
-            json.dumps(
-                {
-                    "apps": {
-                        name: app_version(args.home, entry["command"])
-                        for name, entry in selected.items()
-                    },
-                    "tstack_skills": skills,
-                    "superpowers_source": str(sources["superpowers"]),
-                    "plugins": plugins,
-                },
-                indent=2,
-            )
-        )
-        return 0
-    except (
-        OSError,
-        ValueError,
-        TypeError,
-        subprocess.CalledProcessError,
-        subprocess.TimeoutExpired,
-    ) as error:
-        print(
-            f"Agent app setup failed: {error}. Existing state retained for retry.",
-            file=sys.stderr,
-        )
-        return 1
+    runtime = subprocess.check_output(["node", "--version"], text=True).strip()
+    if not runtime.startswith("v" + str(lock["runtime_major"]) + "."):
+        raise ValueError("The installed Node runtime does not match the catalog")
+    os.environ["PATH"] = str(home / ".local/bin") + ":" + os.environ.get("PATH", "")
+    for name, entry in selected.items():
+        print("Installing/verifying " + name, flush=True)
+        install_app(home, name, entry)
+    configure_update_owners(home, selected)
+    source_lock = lock
+    skills = activate_tstack(home, selected, sources["tstack"])
+    shared_skills = activate_shared_skills(
+        home, selected, sources, source_lock["skills"]
+    )
+    configure_runtime_skills(home, selected, source_lock["developer"]["python"])
+    memory = configure_memory(
+        home,
+        selected,
+        sources["claude-mem"],
+        source_lock["skills"]["claude-mem"],
+    )
+    plugins = register_superpowers(home, selected, sources["superpowers"])
+    rtk = configure_rtk(home, selected)
+    receipt = {
+        "rtk": rtk,
+        "shared_skills": shared_skills,
+        "memory": memory,
+        "schema_version": 1,
+        "manifest_sha256": hashlib.sha256(catalog_path.read_bytes()).hexdigest(),
+        "runtime": runtime,
+        "apps": {
+            name: app_version(home, entry["command"])
+            for name, entry in selected.items()
+        },
+        "tstack_skills": skills,
+        "skill_sources": {name: str(path) for name, path in sources.items()},
+        "superpowers_version": json.loads(
+            (sources["superpowers"] / ".claude-plugin/plugin.json").read_text()
+        )["version"],
+        "native_wrapper_hashes": wrapper_hashes(home, selected),
+        "native_hashes": {
+            name: hashlib.sha256(native_binary(home, entry).read_bytes()).hexdigest()
+            for name, entry in selected.items()
+            if entry["kind"] in {"native", "claude-native"}
+        },
+        "authentication": "separate user login required",
+    }
+    path = home / ".local/state/dotfiles/agent-apps.json"
+    text = json.dumps(receipt, indent=2) + "\n"
+    if not path.is_file() or path.read_text() != text:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    return {"apps": receipt["apps"], "plugins": plugins}

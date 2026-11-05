@@ -51,7 +51,8 @@ fields are `schema_version`, `id`, `owner`, `profile`, `os`, `architecture`,
 `overlays` and `bundles`. Optional `apps` lists the selected AI apps and requires
 the developer bundle. Optional `work` defaults to whether the work overlay is
 enabled. Set it explicitly for a work machine without a work overlay. The `coding` bundle corresponds to `install_agent_clis`; `developer` corresponds
-to the optional `install_developer_tools` selection. Other settings,
+to the optional `install_developer_tools` selection or the prerequisites implied
+by a nonempty app selection. Other settings,
 such as Windows usernames, have not migrated into this schema and remain in existing chezmoi data. Unknown fields are rejected.
 
 Optional `[revisions]` entries pin `public` and enabled overlays to full immutable

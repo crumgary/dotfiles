@@ -147,7 +147,7 @@ MIT.
 
 ## Optional developer tools
 
-Enable `install_developer_tools` to add the [declared developer-tool bundle](docs/provisioning/developer-tools.md)
-and stage the declared shared skill sources. Select Claude Code, Codex,
-OpenCode and/or Antigravity at init for their app and skill integrations.
+Enable `install_developer_tools` to add the [tools and integrations](docs/provisioning/tools.md)
+including shared skills. Select Claude Code, Codex, OpenCode and/or Antigravity
+at init to include them in the same installation workflow.
 Provider logins remain separate from installation.

@@ -1,0 +1,13 @@
+{{- if or (and (hasKey . "install_developer_tools") .install_developer_tools) (and (hasKey . "agent_apps") .agent_apps) -}}
+#!/usr/bin/env bash
+# Selected apps: {{ if hasKey . "agent_apps" }}{{ .agent_apps | toJson }}{{ else }}[]{{ end }}
+# Enabled: {{ if hasKey . "install_developer_tools" }}{{ .install_developer_tools }}{{ else }}false{{ end }}
+# catalog: {{ include "../config/tools.lock.json" | sha256sum }}
+# entrypoint: {{ include "../scripts/install-tools" | sha256sum }}
+{{ range glob (joinPath .chezmoi.sourceDir "../scripts/provision/*.py") }}
+# module: {{ base . }} {{ include . | sha256sum }}
+{{ end }}
+set -euo pipefail
+export PATH="$HOME/.local/bin:$PATH"
+python3 -B "{{ .chezmoi.sourceDir }}/../scripts/install-tools" --apply --from-chezmoi
+{{- end -}}

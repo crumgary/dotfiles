@@ -1,12 +1,12 @@
 #!/usr/bin/env -S python3 -B
-"""Install explicitly selected AI apps and register shared skills."""
+"""Install selected development tools and their integrations."""
 
 import sys
 from pathlib import Path
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from provision.agent_apps import main
+from provision.install_tools import main
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -28,7 +28,7 @@ class AgentAppTests(unittest.TestCase):
                 [
                     sys.executable,
                     "-B",
-                    str(ROOT / "scripts/install-agent-apps"),
+                    str(ROOT / "scripts/install-tools"),
                     "--dry-run",
                     "--apps",
                     "claude,codex,opencode,antigravity",
@@ -52,7 +52,7 @@ class AgentAppTests(unittest.TestCase):
             [
                 sys.executable,
                 "-B",
-                str(ROOT / "scripts/install-agent-apps"),
+                str(ROOT / "scripts/install-tools"),
                 "--dry-run",
                 "--apps",
                 "unrequested",

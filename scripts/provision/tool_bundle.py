@@ -1,6 +1,5 @@
 """Declared developer-tool acquisition, separate from app login and activation."""
 
-import argparse
 import hashlib
 import io
 import json
@@ -8,7 +7,6 @@ import os
 import platform
 import re
 import subprocess
-import sys
 import tarfile
 import tempfile
 import urllib.request
@@ -321,25 +319,8 @@ def require_supported_host():
         raise ValueError("This bundle is verified only on Ubuntu 26.04 x86_64.")
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--dry-run", action="store_true")
-    mode.add_argument("--apply", action="store_true")
-    parser.add_argument("--home", type=Path, default=Path.home())
-    parser.add_argument(
-        "--catalog",
-        type=Path,
-        default=Path(__file__).resolve().parents[2] / "config/tools.lock.json",
-    )
-    parser.add_argument(
-        "--upgrade-apt",
-        default="",
-        help="explicit comma-separated managed apt packages to upgrade",
-    )
-    args = parser.parse_args()
-    lock_path = args.catalog
-    catalog = json.loads(lock_path.read_text())
+def install_bundle(home, catalog, catalog_path, upgrade_apt=()):
+    """Install shared tool prerequisites and stage sources for selected adapters."""
     lock = {
         **catalog["developer"],
         "skills": catalog["skills"],
@@ -350,73 +331,39 @@ def main():
         **{name: entry["version"] for name, entry in lock["binaries"].items()},
         **lock["npm"],
     }
-    if args.dry_run:
-        print(
-            json.dumps(
-                {
-                    "tools": tools,
-                    "skills": lock["skills"],
-                    "activation": "staged only; app adapters are separate",
-                },
-                indent=2,
-            )
-        )
-        return 0
-    try:
-        if args.home.resolve() != Path.home().resolve():
-            raise ValueError(
-                "Apply must run as the actual target user; --home is for dry runs."
-            )
-        require_supported_host()
-        run(["sudo", "-n", "true"])
-        approved = json.loads(
-            (Path(__file__).resolve().parents[2] / "config/tools.lock.json").read_text()
-        )["developer"]
-        validate_binary_ownership(args.home, lock["binaries"], approved)
-        install_apt(lock, [name for name in args.upgrade_apt.split(",") if name])
-        for name, entry in lock["binaries"].items():
-            install_binary(args.home, name, entry)
-        install_npm(args.home, lock["npm"])
-        from provision.python_tools import install_python_tools
+    run(["sudo", "-n", "true"])
+    approved = json.loads(
+        (Path(__file__).resolve().parents[2] / "config/tools.lock.json").read_text()
+    )["developer"]
+    validate_binary_ownership(home, lock["binaries"], approved)
+    install_apt(lock, upgrade_apt)
+    for name, entry in lock["binaries"].items():
+        install_binary(home, name, entry)
+    install_npm(home, lock["npm"])
+    from provision.python_tools import install_python_tools
 
-        install_python_tools(args.home, lock.get("python", {}))
-        sources = {
-            name: stage_skills(args.home, name, entry)
-            for name, entry in lock["skills"].items()
-        }
-        receipt = {
-            "manifest_sha256": hashlib.sha256(lock_path.read_bytes()).hexdigest(),
-            "tools": tools,
-            "binary_hashes": {
-                name: entry["binary_sha256"] for name, entry in lock["binaries"].items()
-            },
-            "apt_installed": {
-                name: subprocess.check_output(
-                    ["dpkg-query", "-W", "-f=${Version}", name], text=True
-                )
-                for name in lock["apt"]
-            },
-            "skill_sources": sources,
-            "activation": "staged only",
-        }
-        destination = args.home / ".local/state/dotfiles/developer-tools.json"
-        contents = json.dumps(receipt, indent=2) + "\n"
-        if not destination.is_file() or destination.read_text() != contents:
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_text(contents)
-        print(
-            "Developer tools installed; pinned skill sources staged. App activation and authentication are separate."
-        )
-        return 0
-    except (
-        OSError,
-        ValueError,
-        KeyError,
-        subprocess.CalledProcessError,
-        tarfile.TarError,
-    ) as error:
-        print(
-            f"Developer bundle failed: {error}. Completed stages are retained for retry.",
-            file=sys.stderr,
-        )
-        return 1
+    install_python_tools(home, lock.get("python", {}))
+    sources = {
+        name: stage_skills(home, name, entry) for name, entry in lock["skills"].items()
+    }
+    receipt = {
+        "manifest_sha256": hashlib.sha256(catalog_path.read_bytes()).hexdigest(),
+        "tools": tools,
+        "binary_hashes": {
+            name: entry["binary_sha256"] for name, entry in lock["binaries"].items()
+        },
+        "apt_installed": {
+            name: subprocess.check_output(
+                ["dpkg-query", "-W", "-f=${Version}", name], text=True
+            )
+            for name in lock["apt"]
+        },
+        "skill_sources": sources,
+        "activation": "staged only",
+    }
+    destination = home / ".local/state/dotfiles/developer-tools.json"
+    contents = json.dumps(receipt, indent=2) + "\n"
+    if not destination.is_file() or destination.read_text() != contents:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(contents)
+    return receipt

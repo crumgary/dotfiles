@@ -145,7 +145,11 @@ def import_current(home, machine_id, owner):
                 if data[key]
             ],
             "bundles": (["coding"] if data["install_agent_clis"] else [])
-            + (["developer"] if data.get("install_developer_tools", False) else []),
+            + (
+                ["developer"]
+                if data.get("install_developer_tools", False) or data.get("agent_apps")
+                else []
+            ),
         }
     )
     # Emit only allowlisted selections, never identities, URLs or credentials.

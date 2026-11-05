@@ -8,8 +8,7 @@ maintaining the repository; agents can use the same references.
 |---|---|
 | [Setup](setup.md) | User workflow: select tools/apps, authenticate, reapply and update. |
 | [Tool updates](tool-updates.md) | Version ownership, update commands, caching and failure recovery. |
-| [Developer tools](developer-tools.md) | Installer reference: package managers, install locations and integrity checks. |
-| [AI apps and skills](agent-apps.md) | Installer reference: app selection, shared skills, plugins, rules and update ownership. |
+| [Tools and integrations](tools.md) | Unified installer, package ownership, shared skills, plugins and rules. |
 | [Machine inventory and doctor](doctor.md) | Machine-record format, read-only inspection and its limitations. |
 
 ## What controls installation

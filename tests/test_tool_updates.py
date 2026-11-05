@@ -349,12 +349,33 @@ class UpdateTransactionTests(unittest.TestCase):
                     "provision.npm_releases.check_npm_release",
                     side_effect=UnavailableNpmRelease("missing dependency"),
                 ),
-                patch.object(tool_updates, "stage_skills") as stage,
                 patch.object(tool_updates.subprocess, "run") as run,
             ):
                 with self.assertRaisesRegex(ValueError, "--refresh"):
                     tool_updates.install_candidate(
                         newer(catalog(), None), path, home, path.parent.parent, None
                     )
-                stage.assert_not_called()
                 run.assert_not_called()
+
+
+class UnifiedInstallerTests(unittest.TestCase):
+    def test_candidate_uses_one_installer_for_packages_and_apps(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "config/tools.lock.json"
+            path.parent.mkdir()
+            candidate = catalog()
+            candidate["developer"]["apt"] = {"gh": "1.0.0"}
+            path.write_text(json.dumps(candidate))
+            with (
+                patch.object(tool_updates, "validate_npm_updates"),
+                patch.object(tool_updates.subprocess, "run") as command,
+            ):
+                tool_updates.install_candidate(
+                    candidate, path, root / "home", root, None
+                )
+            command.assert_called_once()
+            arguments = command.call_args.args[0]
+            self.assertEqual(arguments[2], str(root / "scripts/install-tools"))
+            self.assertIn("--from-chezmoi", arguments)
+            self.assertEqual(arguments[-2:], ["--upgrade-apt", "gh"])

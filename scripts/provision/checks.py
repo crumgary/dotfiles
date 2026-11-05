@@ -107,9 +107,10 @@ def inspect(record, home, source):
         if "agent_apps" in data or record.get("apps"):
             selections["agent_apps"] = record.get("apps", [])
         for key, expected in selections.items():
-            matches = (
-                type(data.get(key)) is type(expected) and data.get(key) == expected
-            )
+            observed = data.get(key)
+            if key == "install_developer_tools" and type(data.get(key, False)) is bool:
+                observed = data.get(key, False) or bool(data.get("agent_apps"))
+            matches = type(observed) is type(expected) and observed == expected
             add(
                 "selection:" + key,
                 "matching" if matches else "drifted",

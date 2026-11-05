@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 SOURCE = Path(__file__).resolve().parents[1]
-CLI = SOURCE / "scripts/install-developer-tools"
+CLI = SOURCE / "scripts/install-tools"
 
 
 class BundleTests(unittest.TestCase):

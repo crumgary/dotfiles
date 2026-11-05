@@ -9,8 +9,7 @@ approved versions. This guide does not prescribe a particular machine name.
 
 Choose the developer bundle and the apps you want during `chezmoi init`, or
 use `chezmoi edit-config` to change the local selections before `chezmoi apply`.
-See [developer tools](developer-tools.md) and [AI apps and skills](agent-apps.md)
-for the selection fields and installer behavior. Disabling a selection does not
+See [tools and integrations](tools.md) for selection fields and installer behavior. Disabling a selection does not
 uninstall existing tools or delete their data.
 
 The developer bundle includes shell/development utilities, GitHub and Atlassian
@@ -58,11 +57,10 @@ From the public dotfiles checkout:
 
 ```console
 chezmoi apply
-python3 -B scripts/install-developer-tools --dry-run
-python3 -B scripts/install-agent-apps --dry-run --from-chezmoi
+python3 -B scripts/install-tools --dry-run --from-chezmoi
 ```
 
-Both installers read one catalog. Source pins and unknown existing customizations
+The installer reads one catalog. Source pins and unknown existing customizations
 are checked before replacement. Use `dotfiles-update --check` and
 `dotfiles-update --apply` to discover, install and validate newer releases before
 publishing the tested catalog. Npm/Python top-level package versions are pinned;

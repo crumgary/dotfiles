@@ -8,12 +8,12 @@ import os
 import subprocess
 import sys
 import tempfile
-import tomllib
 import uuid
 from pathlib import Path
 
+from provision.install_tools import configured_selection
 from provision.npm_releases import UnavailableNpmRelease, validate_npm_updates
-from provision.tool_bundle import require_supported_host, stage_skills
+from provision.tool_bundle import require_supported_host
 from provision.version_catalog import changes, resolve_catalog
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,8 +53,6 @@ def install_candidate(candidate, catalog_path, home, source, only):
             str(error)
             + "; retry later, or use --apply --refresh to resolve a new candidate and defer unavailable releases"
         ) from error
-    for name, entry in candidate["skills"].items():
-        stage_skills(home, name, entry)
     apt = (
         set(candidate["developer"]["apt"])
         if not only
@@ -65,30 +63,17 @@ def install_candidate(candidate, catalog_path, home, source, only):
     command = [
         sys.executable,
         "-B",
-        str(source / "scripts/install-developer-tools"),
+        str(source / "scripts/install-tools"),
         "--apply",
+        "--from-chezmoi",
         "--catalog",
         str(catalog_path),
     ]
     if apt:
         command += ["--upgrade-apt", ",".join(sorted(apt))]
     subprocess.run(command, check=True)
-    config = tomllib.loads((home / ".config/chezmoi/chezmoi.toml").read_text())["data"]
-    if config.get("agent_apps"):
-        subprocess.run(
-            [
-                sys.executable,
-                "-B",
-                str(source / "scripts/install-agent-apps"),
-                "--apply",
-                "--from-chezmoi",
-                "--catalog",
-                str(catalog_path),
-            ],
-            check=True,
-        )
     return {
-        "validation": "developer installers, local browser probe, selected app versions, skill integrity and local worker health passed"
+        "validation": "unified tool installer, local browser probe, selected app versions, skill integrity and local worker health passed"
     }
 
 
@@ -263,12 +248,12 @@ def main():
             )
             return 0
         require_supported_host()
-        config = tomllib.loads(
-            (Path.home() / ".config/chezmoi/chezmoi.toml").read_text()
-        )["data"]
-        if config.get("install_developer_tools") is not True:
+        enabled, _ = configured_selection(
+            Path.home(), json.loads(args.catalog.read_text())
+        )
+        if not enabled:
             raise ValueError(
-                "Enable the developer bundle in chezmoi before applying tool updates"
+                "Enable development tools or select apps in chezmoi before applying updates"
             )
         report = apply_update(
             args.catalog, Path.home(), only=only, refresh=args.refresh

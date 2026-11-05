@@ -77,7 +77,7 @@ silently downgrading them.
 
 Apply resolves a complete candidate and freezes it under
 `~/.local/state/dotfiles/updates/`. It stages/verifies sources, uses the normal
-developer/app installers, probes the local browser and selected app versions,
+unified tool installer, probes the local browser and selected app versions,
 checks skill integrity and validates the local memory worker. Only successful
 validation replaces the approved catalog. A concurrent catalog edit is retained
 and reported as a conflict.
