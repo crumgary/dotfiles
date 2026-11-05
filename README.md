@@ -132,11 +132,11 @@ failed candidate; unavailable npm releases are deferred. See [version and update
 ## Machine inventory and read-only doctor
 
 [Doctor reference](docs/provisioning/doctor.md): declare machine selections in
-one private overlay and inspect configuration drift without applying changes.
+a local record or enabled overlay and inspect configuration drift without applying changes.
 Requires Python 3.11+; templates and unaudited checks are reported as unverified.
 
 ```console
-python3 -B scripts/dotfiles-doctor --machine ~/.config/dotfiles-priv/machines/primary-wsl.toml
+python3 -B scripts/dotfiles-doctor --machine ~/.config/dotfiles/machines/primary-wsl.toml
 ```
 
 On Ubuntu 26.04, core CLI tools and Vim use distro packages.
@@ -146,6 +146,9 @@ On Ubuntu 26.04, core CLI tools and Vim use distro packages.
 MIT.
 
 ## Optional developer tools
+
+The managed tool installer currently supports Ubuntu 26.04 x86_64 only; other
+Ubuntu releases and Red Hat systems need additional target recipes.
 
 Enable `install_developer_tools` to add the [tools and integrations](docs/provisioning/tools.md)
 including shared skills. Select Claude Code, Codex, OpenCode and/or Antigravity

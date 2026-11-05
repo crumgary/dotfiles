@@ -36,6 +36,13 @@ def read_toml(path):
         ) from None
 
 
+def validate_app_dependencies(names):
+    if "opencode" in names and "claude" not in names:
+        raise InputError(
+            "OpenCode RTK integration currently requires selecting Claude too."
+        )
+
+
 def validate(record):
     if not isinstance(record, dict) or set(record) - FIELDS:
         raise InputError("Machine record contains unknown fields.")
@@ -82,6 +89,7 @@ def validate(record):
         or set(apps) - {"claude", "codex", "opencode", "antigravity"}
     ):
         raise InputError("Invalid or duplicated app selection.")
+    validate_app_dependencies(apps)
     if apps and "developer" not in record["bundles"]:
         raise InputError("Selected apps require the developer runtime bundle.")
     revisions = record.get("revisions", {})

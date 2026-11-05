@@ -4,6 +4,14 @@ Maintainer reference for `scripts/install-tools`. For everyday operation and
 login steps, start with the [setup guide](setup.md). Exact versions, revisions
 and hashes live in `config/tools.lock.json`.
 
+## Current platform scope
+
+The managed installer currently accepts only Ubuntu 26.04 x86_64. Its system
+packages, repositories and native artifacts are tied to that target. The older
+baseline apt/dnf paths do not make this new bundle portable. Supporting other
+Ubuntu releases and Red Hat systems requires target-specific package recipes
+and artifact resolution; do not reuse Ubuntu package-version baselines on them.
+
 ## Configure and run
 
 Select tools during `chezmoi init`, or edit the local chezmoi data:
@@ -29,6 +37,10 @@ From the public dotfiles checkout:
 python3 -B scripts/install-tools --dry-run --from-chezmoi
 chezmoi apply
 ```
+
+The pinned RTK initializer configures OpenCode together with Claude. Select both
+`opencode` and `claude` for now; OpenCode-only selection is rejected before tool
+installation. This restriction belongs to the current RTK integration.
 
 For direct installation, run `python3 -B scripts/install-tools --apply --from-chezmoi`.
 To preview an explicit app selection without reading local chezmoi data, use

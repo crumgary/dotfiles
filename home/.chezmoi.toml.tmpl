@@ -11,15 +11,21 @@
 {{- $profile := promptChoiceOnce . "profile" "Profile" (list "wsl" "devbox" "lab" "embedded") -}}
 {{- $work    := promptBoolOnce   . "work"    "Is this a work machine? (true/false)" -}}
 
-{{- /* AI coding CLIs + supporting tooling (claude/agy/opencode/codex, nvm, playwright). */ -}}
+{{- /* Preserve legacy selections on re-init; new setups use managed tools. */ -}}
 {{- /* Legacy all-in-one installer is disabled for new setups. */ -}}
 {{- $install_agent_clis := false -}}
+{{- if hasKey . "install_agent_clis" -}}{{- $install_agent_clis = .install_agent_clis -}}{{- end -}}
 {{- $agent_apps_csv := "" -}}
 {{- $agent_apps := list -}}
 {{- if ne $profile "embedded" -}}
+  {{- if hasKey . "agent_apps" -}}
+    {{- $agent_apps = .agent_apps -}}
+    {{- $agent_apps_csv = join "," $agent_apps -}}
+  {{- else -}}
   {{- $agent_apps_csv = promptStringOnce . "agent_apps_csv" "AI apps, comma-separated (claude,codex,opencode,antigravity; blank for none)" -}}
   {{- if ne $agent_apps_csv "" -}}
     {{- range splitList "," $agent_apps_csv -}}{{- $agent_apps = append $agent_apps (trim .) -}}{{- end -}}
+  {{- end -}}
   {{- end -}}
 {{- end -}}
 

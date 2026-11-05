@@ -533,6 +533,63 @@ class DoctorTests(unittest.TestCase):
             "matching",
         )
 
+    def test_managed_requirements_and_version_gaps_follow_tools_catalog(self):
+        catalog = self.source / "config/tools.lock.json"
+        catalog.parent.mkdir()
+        catalog.write_text(
+            json.dumps(
+                {
+                    "developer": {
+                        "apt": {"nodejs": "26.0.0"},
+                        "binaries": {"catalog-only-tool": {"version": "1.2.3"}},
+                        "npm": {"catalog-only-npm": "2.0.0"},
+                        "python": {
+                            "example": {
+                                "version": "3.0.0",
+                                "commands": ["catalog-python"],
+                            }
+                        },
+                    },
+                    "agents": {
+                        "codex": {"command": "catalog-codex", "version": "4.0.0"},
+                        "claude": {"command": "unselected-agent", "version": "5.0.0"},
+                    },
+                }
+            )
+        )
+        binary = self.root / "bin/catalog-only-tool"
+        binary.parent.mkdir()
+        binary.write_text("#!/bin/sh\nexit 73\n")
+        binary.chmod(0o755)
+        self.record.write_text(
+            RECORD.replace("bundles = []", 'bundles = ["developer"]')
+            + 'apps=["codex"]\n'
+        )
+        self.config.write_text(
+            self.config.read_text()
+            + 'install_developer_tools=true\nagent_apps=["codex"]\n'
+        )
+        findings = self.doctor()
+        self.assertEqual(
+            self.finding(findings, "tool:catalog-only-tool")["status"], "matching"
+        )
+        self.assertEqual(
+            self.finding(findings, "version:catalog-only-tool")["status"], "unverified"
+        )
+        self.assertEqual(
+            self.finding(findings, "tool:catalog-only-npm")["status"], "missing"
+        )
+        self.assertEqual(
+            self.finding(findings, "tool:catalog-python")["status"], "missing"
+        )
+        self.assertEqual(
+            self.finding(findings, "tool:catalog-codex")["status"], "missing"
+        )
+        self.assertEqual(self.finding(findings, "tool:npm")["status"], "matching")
+        self.assertFalse(
+            any(item["check"] == "tool:unselected-agent" for item in findings)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

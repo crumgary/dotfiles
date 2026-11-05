@@ -35,7 +35,7 @@ bootstrap.sh
 docs
 scripts
 
-{{ if not (and (hasKey . "install_developer_tools") .install_developer_tools) }}
+{{ if not (or (and (hasKey . "install_developer_tools") .install_developer_tools) (and (hasKey . "agent_apps") .agent_apps)) }}
 .local/bin/axi-chrome
 .local/bin/dotfiles-update
 {{ end }}

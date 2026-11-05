@@ -240,3 +240,61 @@ class ChezmoiHookTests(unittest.TestCase):
             )
             result = subprocess.run(command, capture_output=True, text=True, check=True)
             self.assertFalse(result.stdout.strip())
+            command[command.index("--override-data") + 1] = (
+                '{"install_agent_clis":true,"install_developer_tools":true,"agent_apps":[]}'
+            )
+            result = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("install_agent_clis=false", result.stderr)
+
+
+class SelectionPreflightTests(unittest.TestCase):
+    def test_opencode_dependency_is_rejected_before_apply_creates_state(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary) / "absent"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(CLI),
+                    "--apply",
+                    "--apps",
+                    "opencode",
+                    "--home",
+                    str(home),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("Claude", result.stderr)
+            self.assertFalse(home.exists())
+
+    def test_conflicting_legacy_and_managed_modes_fail_before_installation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            config = home / ".config/chezmoi/chezmoi.toml"
+            config.parent.mkdir(parents=True)
+            config.write_text(
+                "[data]\ninstall_agent_clis=true\ninstall_developer_tools=true\n"
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-B",
+                    str(CLI),
+                    "--apply",
+                    "--from-chezmoi",
+                    "--home",
+                    str(home),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("install_agent_clis=false", result.stderr)
+            self.assertFalse((home / ".local").exists())

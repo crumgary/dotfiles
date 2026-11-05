@@ -1,5 +1,6 @@
 """Filesystem checks and fixed read-only Git probes; no template or tool execution."""
 
+import json
 import platform
 import shutil
 import stat
@@ -226,6 +227,39 @@ def inspect(record, home, source):
     return findings
 
 
+def managed_requirements(catalog, selected):
+    """Derive command requirements from the installer catalog without execution."""
+    developer = catalog["developer"]
+    aliases = {
+        "nodejs": ["node", "npm"],
+        "imagemagick": ["magick"],
+        "poppler-utils": ["pdftotext"],
+        "librsvg2-bin": ["rsvg-convert"],
+    }
+    commands, versions = [], {}
+    for package, version in developer["apt"].items():
+        names = aliases.get(package, [package])
+        commands.extend(names)
+        versions[names[0]] = version
+    for command, entry in developer["binaries"].items():
+        commands.append(command)
+        versions[command] = entry["version"]
+    for command, version in developer["npm"].items():
+        commands.append(command)
+        versions[command] = version
+    for entry in developer.get("python", {}).values():
+        commands.extend(entry["commands"])
+        versions.update({name: entry["version"] for name in entry["commands"]})
+    for name in selected:
+        entry = catalog["agents"][name]
+        commands.append(entry["command"])
+        versions[entry["command"]] = entry["version"]
+    commands.extend(["axi-chrome", "dotfiles-update"])
+    if any(not isinstance(name, str) or not name for name in commands):
+        raise ValueError("Invalid catalog command declaration")
+    return commands, versions
+
+
 def inspect_tools(source, record, add):
     path = source / "home/.chezmoidata/packages.toml"
     try:
@@ -237,10 +271,8 @@ def inspect_tools(source, record, add):
             else catalog["common"]
         )
         for bundle in record["bundles"]:
-            commands.extend(catalog["bundles"][bundle])
-        commands.extend(
-            "agy" if app == "antigravity" else app for app in record.get("apps", [])
-        )
+            if bundle != "developer":
+                commands.extend(catalog["bundles"][bundle])
         versions = packages.get("release_binary", {})
         if not isinstance(commands, list) or any(
             not isinstance(c, str) or not c for c in commands
@@ -254,6 +286,28 @@ def inspect_tools(source, record, add):
             path,
         )
         return
+    if "developer" in record["bundles"]:
+        tool_catalog = source / "config/tools.lock.json"
+        try:
+            managed, pinned = managed_requirements(
+                json.loads(tool_catalog.read_text()), record.get("apps", [])
+            )
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            add(
+                "catalog:tools",
+                "unverified",
+                "Managed-tool catalog is missing or invalid.",
+                tool_catalog,
+            )
+        else:
+            commands.extend(managed)
+            versions.update(pinned)
+            add(
+                "catalog:tools",
+                "matching",
+                "Tool requirements read from the installer catalog; installation is checked separately.",
+                tool_catalog,
+            )
     for command in dict.fromkeys(commands):
         aliases = command.split("|")
         resolved = next(

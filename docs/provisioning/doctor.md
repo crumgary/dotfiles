@@ -31,13 +31,13 @@ No SSH endpoints, credentials, history or runtime databases belong in a record.
 From the public dotfiles checkout:
 
 ```console
-python3 -B scripts/dotfiles-doctor --import-current --id primary-wsl --owner personal
+python3 -B scripts/dotfiles-doctor --import-current --id primary-wsl --owner local
 ```
 
 This prints TOML to stdout only. Review the ID, platform and selections, then
-save the reviewed text as `~/.config/dotfiles-priv/machines/primary-wsl.toml`.
-Use `--owner work` for a work-owned record or `--owner local` for public-only
-setup. Import does not write a record, alter chezmoi data, select a default
+save a public-only/local record under `~/.config/dotfiles/machines/primary-wsl.toml`.
+Use `--owner personal` or `--owner work` only when that overlay is enabled, and
+save its record under the corresponding overlay's `machines/` directory. Import does not write a record, alter chezmoi data, select a default
 machine, or install anything. It excludes Git identities, endpoints and secrets.
 An incomplete selection set is an error, rather than a guessed default.
 
@@ -63,8 +63,8 @@ itself is optional; this slice makes no exact-rebuild guarantee.
 ## Inspect
 
 ```console
-python3 -B scripts/dotfiles-doctor --machine ~/.config/dotfiles-priv/machines/primary-wsl.toml
-python3 -B scripts/dotfiles-doctor --machine ~/.config/dotfiles-priv/machines/primary-wsl.toml --json
+python3 -B scripts/dotfiles-doctor --machine ~/.config/dotfiles/machines/primary-wsl.toml
+python3 -B scripts/dotfiles-doctor --machine ~/.config/dotfiles/machines/primary-wsl.toml --json
 ```
 
 `--home PATH` and `--source PATH` inspect a fixture or alternate source checkout.
@@ -93,9 +93,11 @@ write a generic diagnostic to stderr with no partial success document.
 - Reads allowlisted selections from local chezmoi TOML, never sources shell files.
 - Checks platform, enabled overlays, instruction fragment presence, declared source revisions, ordinary managed files, relevant
   file access attributes, and private Pi runtime mode 0700.
-- Reads command requirements from the existing public package declaration file.
-  Finds commands on PATH without executing them. Pinned release versions remain
-  unverified; command presence alone is insufficient evidence of a version.
+- Reads baseline/legacy command requirements from the public package declarations
+  and managed tool requirements from `config/tools.lock.json`, including selected
+  app commands and Python entry points. Finds commands on PATH without executing
+  them. Declared versions are reported as unverified; command presence alone
+  does not verify a version, binary hash, plugin registration or service health.
 - Walks source files without following source symlinks. Static `dot_`, `private_`,
   `readonly_`, `executable_` and literal `symlink_` file forms are supported.
   Other attributes, templates, symlinked parents and missing targets potentially

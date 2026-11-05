@@ -1,4 +1,7 @@
 {{- if or (and (hasKey . "install_developer_tools") .install_developer_tools) (and (hasKey . "agent_apps") .agent_apps) -}}
+{{- if and (hasKey . "install_agent_clis") .install_agent_clis -}}
+{{- fail "Set install_agent_clis=false before enabling managed tools; both installers cannot own the same tools" -}}
+{{- end -}}
 #!/usr/bin/env bash
 # Selected apps: {{ if hasKey . "agent_apps" }}{{ .agent_apps | toJson }}{{ else }}[]{{ end }}
 # Enabled: {{ if hasKey . "install_developer_tools" }}{{ .install_developer_tools }}{{ else }}false{{ end }}

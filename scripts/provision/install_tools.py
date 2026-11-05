@@ -10,6 +10,7 @@ import tomllib
 from pathlib import Path
 
 from provision.agent_apps import configure_apps
+from provision.inventory import validate_app_dependencies
 from provision.tool_bundle import install_bundle, require_supported_host
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,6 +24,7 @@ def validate_selection(catalog, names):
         or set(names) - set(catalog["agents"])
     ):
         raise ValueError("Select unique app names from " + ",".join(catalog["agents"]))
+    validate_app_dependencies(names)
     return names
 
 
@@ -34,7 +36,12 @@ def configured_selection(home, catalog):
     if type(enabled) is not bool:
         raise ValueError("install_developer_tools must be boolean")
     names = validate_selection(catalog, data.get("agent_apps", []))
-    return enabled or bool(names), names
+    enabled = enabled or bool(names)
+    if enabled and data.get("install_agent_clis", False):
+        raise ValueError(
+            "Set install_agent_clis=false before enabling managed tools; both installers cannot own the same tools"
+        )
+    return enabled, names
 
 
 def installation_plan(catalog, names, enabled=True):
