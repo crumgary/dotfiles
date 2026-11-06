@@ -14,7 +14,7 @@ from pathlib import Path
 from provision.host_platform import portable_catalog, system_recipe
 from provision.install_tools import configured_selection
 from provision.npm_releases import UnavailableNpmRelease, validate_npm_updates
-from provision.tool_bundle import require_supported_host
+from provision.tool_bundle import require_supported_host, user_only_mode
 from provision.version_catalog import changes, resolve_catalog
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -71,7 +71,14 @@ def install_candidate(candidate, catalog_path, home, source, only):
         "--catalog",
         str(catalog_path),
     ]
-    if upgrades:
+    if user_only_mode(home):
+        if only and upgrades:
+            raise ValueError(
+                "Native tools and Node are externally managed in user-only mode; "
+                "update them separately: " + ", ".join(sorted(upgrades))
+            )
+        command.append("--user-only")
+    elif upgrades:
         command += ["--upgrade-system", ",".join(sorted(upgrades))]
     subprocess.run(command, check=True)
     return {
@@ -252,7 +259,11 @@ def main():
                         "mode": "check",
                         "deferred": deferred,
                         "changes": changes(before, candidate),
-                        "system_packages": "host repository candidates; upgrades are installed only with --apply",
+                        "system_packages": (
+                            "externally managed (user-only mode)"
+                            if user_only_mode(Path.home())
+                            else "host repository candidates; upgrades are installed only with --apply"
+                        ),
                         "node_major": candidate["runtime_major"],
                     },
                     indent=2,

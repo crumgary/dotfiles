@@ -284,7 +284,35 @@ def require_supported_host():
     return detect_host()
 
 
-def install_bundle(home, catalog, catalog_path, upgrade_system=()):
+def user_only_mode(home):
+    receipt = Path(home) / ".local/state/dotfiles/developer-tools.json"
+    return (
+        json.loads(receipt.read_text()).get("installation_mode") == "user"
+        if receipt.is_file()
+        else False
+    )
+
+
+def save_user_only_mode(home):
+    """Keep an explicit privilege boundary even if the first acquisition fails."""
+    receipt = Path(home) / ".local/state/dotfiles/developer-tools.json"
+    data = json.loads(receipt.read_text()) if receipt.is_file() else {}
+    if data.get("installation_mode") == "user":
+        return
+    data["installation_mode"] = "user"
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary = tempfile.mkstemp(dir=receipt.parent, prefix=".user-mode-")
+    try:
+        with os.fdopen(descriptor, "w") as output:
+            output.write(json.dumps(data, indent=2) + "\n")
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, receipt)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+def install_bundle(home, catalog, catalog_path, upgrade_system=(), user_only=False):
     """Install shared tool prerequisites and stage sources for selected adapters."""
     lock = {
         **catalog["developer"],
@@ -292,21 +320,43 @@ def install_bundle(home, catalog, catalog_path, upgrade_system=()):
         "runtime_major": catalog["runtime_major"],
     }
     from provision.host_platform import system_recipe
-    from provision.system_packages import install_system
+    from provision.system_packages import install_system, installed_version
 
     host = require_supported_host()
     recipe = system_recipe(host)
     tools = {
-        **{name: "distribution" for name in recipe["packages"]},
+        **(
+            {name: "distribution" for name in recipe["packages"]}
+            if not user_only
+            else {}
+        ),
         **{name: entry["version"] for name, entry in lock["binaries"].items()},
         **lock["npm"],
     }
-    run(["sudo", "-n", "true"])
+    if user_only:
+        if upgrade_system:
+            raise ValueError("User-only installation cannot upgrade system packages")
+        save_user_only_mode(home)
+        runtime = subprocess.check_output(["node", "--version"], text=True).strip()
+        if not runtime.startswith(f"v{catalog['runtime_major']}."):
+            raise ValueError(
+                f"User-only installation requires Node {catalog['runtime_major']} on PATH; "
+                "install a user-local runtime first"
+            )
+    else:
+        run(["sudo", "-n", "true"])
     approved = json.loads(
         (Path(__file__).resolve().parents[2] / "config/tools.lock.json").read_text()
     )["developer"]
     validate_binary_ownership(home, lock["binaries"], approved)
-    system_versions = install_system(recipe, catalog["runtime_major"], upgrade_system)
+    system_versions = (
+        {
+            name: installed_version(recipe["manager"], entry["name"])
+            for name, entry in recipe["packages"].items()
+        }
+        if user_only
+        else install_system(recipe, catalog["runtime_major"], upgrade_system)
+    )
     for name, entry in lock["binaries"].items():
         install_binary(home, name, entry)
     install_npm(home, lock["npm"], system_browser=recipe["browser"] == "system")
@@ -324,6 +374,7 @@ def install_bundle(home, catalog, catalog_path, upgrade_system=()):
         },
         "target": host["id"],
         "package_manager": recipe["manager"],
+        "installation_mode": "user" if user_only else "system",
         "system_packages": system_versions,
         "skill_sources": sources,
         "activation": "staged only",

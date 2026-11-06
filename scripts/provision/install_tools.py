@@ -12,7 +12,7 @@ from provision.agent_apps import configure_apps
 from provision.host_platform import detect_host, portable_catalog, system_recipe
 from provision.inventory import validate_app_dependencies
 from provision.toml_compat import tomllib
-from provision.tool_bundle import install_bundle, require_supported_host
+from provision.tool_bundle import install_bundle, require_supported_host, user_only_mode
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -45,17 +45,22 @@ def configured_selection(home, catalog):
     return enabled, names
 
 
-def installation_plan(catalog, names, enabled=True):
+def installation_plan(catalog, names, enabled=True, user_only=False):
     developer = catalog["developer"]
     host = detect_host()
     system = system_recipe(host)
     return {
         "target": host["id"],
-        "system": system if enabled else {},
+        "installation_mode": "user" if user_only else "system",
+        "system": system if enabled and not user_only else {},
         "enabled": enabled,
         "runtime_major": catalog["runtime_major"],
         "tools": {
-            **{name: "distribution" for name in system["packages"]},
+            **(
+                {name: "distribution" for name in system["packages"]}
+                if not user_only
+                else {}
+            ),
             **{name: entry["version"] for name, entry in developer["binaries"].items()},
             **developer["npm"],
         }
@@ -67,7 +72,9 @@ def installation_plan(catalog, names, enabled=True):
     }
 
 
-def install_tools(home, catalog, catalog_path, names, upgrade_system=()):
+def install_tools(
+    home, catalog, catalog_path, names, upgrade_system=(), user_only=False
+):
     validate_selection(catalog, names)
     if home.resolve() != Path.home().resolve():
         raise ValueError(
@@ -75,11 +82,15 @@ def install_tools(home, catalog, catalog_path, names, upgrade_system=()):
         )
     require_supported_host()
     os.environ["PATH"] = str(home / ".local/bin") + ":" + os.environ.get("PATH", "")
-    receipt = install_bundle(home, catalog, catalog_path, upgrade_system)
+    user_only = user_only or user_only_mode(home)
+    options = {"user_only": True} if user_only else {}
+    receipt = install_bundle(home, catalog, catalog_path, upgrade_system, **options)
     integrations = {}
     if names:
         sources = {name: Path(path) for name, path in receipt["skill_sources"].items()}
-        integrations = configure_apps(home, catalog, catalog_path, names, sources)
+        integrations = configure_apps(
+            home, catalog, catalog_path, names, sources, **options
+        )
     return {"status": "verified", "selected_apps": names, "integrations": integrations}
 
 
@@ -97,6 +108,11 @@ def main():
     )
     parser.add_argument("--home", type=Path, default=Path.home())
     parser.add_argument("--catalog", type=Path, default=ROOT / "config/tools.lock.json")
+    parser.add_argument(
+        "--user-only",
+        action="store_true",
+        help="install per-user tools only; requires the declared Node major and existing native dependencies",
+    )
     parser.add_argument(
         "--upgrade-system",
         "--upgrade-apt",
@@ -117,14 +133,19 @@ def main():
                 parser.error(str(error))
             enabled = True
         upgrades = [name for name in args.upgrade_system.split(",") if name]
+        user_only = args.user_only or user_only_mode(args.home)
+        if user_only and upgrades:
+            raise ValueError("User-only installation cannot upgrade system packages")
         if upgrades and set(upgrades) - set(system_recipe()["packages"]):
             raise ValueError("Only declared system packages may be upgraded")
         if args.dry_run:
-            report = installation_plan(catalog, names, enabled)
+            report = installation_plan(catalog, names, enabled, user_only)
         elif not enabled:
             report = {"status": "disabled", "selected_apps": []}
         else:
-            report = install_tools(args.home, catalog, args.catalog, names, upgrades)
+            report = install_tools(
+                args.home, catalog, args.catalog, names, upgrades, user_only
+            )
         print(json.dumps(report, indent=2))
         return 0
     except (

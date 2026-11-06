@@ -462,7 +462,9 @@ def service_unit(home, runtime):
     )
 
 
-def configure_service(home, runtime, restart=False, previous_runtime=None):
+def configure_service(
+    home, runtime, restart=False, previous_runtime=None, user_only=False
+):
     # WSL --exec does not open a PAM login, so initialize the user bus explicitly.
     uid = os.getuid()
     env = {
@@ -470,7 +472,10 @@ def configure_service(home, runtime, restart=False, previous_runtime=None):
         "XDG_RUNTIME_DIR": f"/run/user/{uid}",
         "DBUS_SESSION_BUS_ADDRESS": f"unix:path=/run/user/{uid}/bus",
     }
-    distro = os.environ.get("WSL_DISTRO_NAME")
+    distro = os.environ.get("WSL_DISTRO_NAME") if not user_only else None
+    if user_only:
+        # Require the existing login/session manager; never enable machine-wide linger.
+        run(["systemctl", "--user", "show-environment"], env=env)
     if distro:
         # WSL distributions share cgroups. Keep each same-UID user manager in
         # its own slice without touching another distro's processes.
@@ -512,8 +517,9 @@ def configure_service(home, runtime, restart=False, previous_runtime=None):
             retry,
         ):
             run(["sudo", "-n", "systemctl", "daemon-reload"])
-    run(["sudo", "-n", "loginctl", "enable-linger", getpass.getuser()])
-    run(["sudo", "-n", "systemctl", "start", f"user@{uid}.service"])
+    if not user_only:
+        run(["sudo", "-n", "loginctl", "enable-linger", getpass.getuser()])
+        run(["sudo", "-n", "systemctl", "start", f"user@{uid}.service"])
     unit = service_unit(home, runtime)
     path = home / ".config/systemd/user/claude-mem.service"
     if path.exists() and path.read_text() not in (
@@ -547,7 +553,7 @@ def wait_for_health(port=37700, timeout=90):
     )
 
 
-def configure_memory(home, selected, source, entry):
+def configure_memory(home, selected, source, entry, user_only=False):
     home, source = Path(home), Path(source)
     if home.resolve() != Path.home().resolve():
         raise ValueError("Memory activation must run as the actual target user")
@@ -558,7 +564,8 @@ def configure_memory(home, selected, source, entry):
         and hashlib.sha256(bun_path.read_bytes()).hexdigest()
         != entry["bun"]["binary_sha256"]
     )
-    protect_wsl_interop()
+    if not user_only:
+        protect_wsl_interop()
     port = configure_port(home)
     bun = install_bun(home, entry["bun"], previous)
     env = {
@@ -614,6 +621,7 @@ def configure_memory(home, selected, source, entry):
         restart=bun_changed
         or bool(previous and previous["bun_sha256"] != entry["bun"]["binary_sha256"]),
         previous_runtime=Path(previous["runtime"]) if previous else None,
+        **({"user_only": True} if user_only else {}),
     )
     # The default fresh worker uses the standard loopback port. Preserve a custom port.
     health = wait_for_health(port)

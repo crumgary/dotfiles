@@ -111,7 +111,7 @@ def install_app(home, name, entry):
         raise ValueError(f"{name} installation did not verify at the declared version")
 
 
-def configure_apps(home, lock, catalog_path, names, sources):
+def configure_apps(home, lock, catalog_path, names, sources, user_only=False):
     """Install selected tools and configure their skills, plugins and runtime."""
     selected = {name: lock["agents"][name] for name in names}
     runtime = subprocess.check_output(["node", "--version"], text=True).strip()
@@ -133,6 +133,7 @@ def configure_apps(home, lock, catalog_path, names, sources):
         selected,
         sources["claude-mem"],
         source_lock["skills"]["claude-mem"],
+        **({"user_only": True} if user_only else {}),
     )
     plugins = register_superpowers(home, selected, sources["superpowers"])
     rtk = configure_rtk(home, selected)

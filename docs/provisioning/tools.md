@@ -57,10 +57,38 @@ For direct installation, run `python3 -B scripts/install-tools --apply --from-ch
 To preview an explicit app selection without reading local chezmoi data, use
 `python3 -B scripts/install-tools --dry-run --apps claude,codex`.
 
-Dry run does not install, access the network or create state. Apply requires a supported target and a normal user with passwordless sudo. The single chezmoi hook fingerprints the catalog, system recipes, entry point
+Dry run does not install, access the network or create state. Standard apply requires a supported target and a normal user with passwordless sudo. The single chezmoi hook fingerprints the catalog, system recipes, entry point
 and internal installation modules.
 The updater invokes this same installer with its validated candidate catalog.
 Disabling a selection does not uninstall tools or delete their data.
+
+### Hosts without sudo
+
+Use `python3 -B scripts/install-tools --apply --user-only --from-chezmoi` to
+install portable tools and AI integrations under the current user's home.
+The declared Node major must already be on PATH, for example through a
+user-local official Node distribution. Existing native packages and browser
+libraries are used without changing repositories or invoking apt/dnf.
+Missing browser libraries still cause the browser probe to fail; request those
+packages from the host administrator before retrying.
+
+The existing developer receipt records `installation_mode = "user"` and the
+observed native packages, including missing ones. Those packages are not claimed
+as managed tools. Installer retries and `dotfiles-update --apply` retain user-only
+mode automatically and skip native package upgrades. An explicit
+`--upgrade-system` selection is rejected in this mode. The runtime's selected
+major remains a prerequisite rather than an implicitly managed system package.
+Native-only updater selections such as `--only acli` or `--only node` are also
+rejected with a reminder to update those external tools separately.
+
+The local memory worker requires an already available systemd user manager.
+User-only installation enables its user service but does not enable lingering,
+start a machine-level user manager, or alter WSL system services. Without
+lingering, worker availability after logout follows the host's session policy.
+An administrator can enable it with `sudo loginctl enable-linger USER`.
+User-only tool installation does not make the baseline shell/package hooks
+unprivileged; on an existing host, apply only the intended AI configuration
+files rather than the full workstation bootstrap.
 
 ## Installation ownership
 
